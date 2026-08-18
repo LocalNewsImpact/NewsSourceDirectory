@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+        exclude: ^mockup/
+      - id: trailing-whitespace
+        exclude: ^mockup/
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        # The mockup carries the full dataset inline and is intentionally large.
+        args: [--maxkb=2048]
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: python -m pytest
+        language: system
+        pass_filenames: false
+        types: [python]

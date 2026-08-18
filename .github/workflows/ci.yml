@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff==0.9.6
+      - name: ruff check
+        run: ruff check .
+      - name: ruff format
+        run: ruff format --check .
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest==8.3.4
+      - name: Rule and mockup tests
+        run: python -m pytest
+
+  data-quality:
+    name: Data quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # The fixture is real prototype data and still carries its defects, so it
+      # is expected to FAIL. This job asserts the rules still catch them —
+      # a clean run here would mean the checks have stopped working.
+      - name: Rules detect the known defects
+        run: |
+          set +e
+          python -m checks tests/fixtures/outlets_sample.csv \
+            --coverage tests/fixtures/coverage_sample.csv | tee report.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "::error::Fixture passed all rules — the defect detection has regressed."
+            exit 1
+          fi
+          for rule in no_placeholder_domain merge_requires_review no_header_artifacts no_url_in_medium; do
+            grep -q "$rule" report.txt || { echo "::error::$rule no longer fires"; exit 1; }
+          done
+          echo "All expected defects detected."
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: data-quality-report
+          path: report.txt
+
+  pages:
+    name: Pages payload
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mockup stays servable
+        run: |
+          test -f mockup/index.html
+          test -f .nojekyll
+          size=$(wc -c < mockup/index.html)
+          echo "mockup/index.html: $size bytes"
+          # GitHub Pages serves up to 100MB per file; stay well inside it.
+          if [ "$size" -gt 20000000 ]; then
+            echo "::error::mockup exceeds 20MB"; exit 1
+          fi
+      - name: Internal doc links resolve
+        run: |
+          fail=0
+          for f in README.md MIGRATION.md; do
+            grep -oE '\]\([^)#][^)]*\)' "$f" | sed 's/^](//;s/)$//' \
+              | grep -vE '^https?://' | while read -r link; do
+                  target="${link%%#*}"
+                  [ -z "$target" ] && continue
+                  if [ ! -e "$target" ]; then
+                    echo "::error file=$f::broken link: $target"; exit 1
+                  fi
+                done || fail=1
+          done
+          exit $fail

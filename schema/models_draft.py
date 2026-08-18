@@ -23,8 +23,15 @@ from simple_history.models import HistoricalRecords
 # Fields written to the public export. Named explicitly so a future column
 # cannot be published by accident — see MIGRATION.md.
 PUBLIC_FIELDS = (
-    "id", "name", "domain", "canonical_url",
-    "medium", "categories", "state", "city", "county",
+    "id",
+    "name",
+    "domain",
+    "canonical_url",
+    "medium",
+    "categories",
+    "state",
+    "city",
+    "county",
 )
 
 # Path segments that do not distinguish one outlet from another.

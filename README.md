@@ -148,6 +148,63 @@ keyword search, all three multi-select filters, outlet cards, the coverage table
 and the data explorer, with CSV export of whatever is on screen. Card/table
 toggle, sortable columns, filter chips and pagination are additions.
 
+## CI and data quality
+
+`.github/workflows/ci.yml` runs four jobs on every push and pull request.
+
+| Job | Checks |
+|---|---|
+| Lint | `ruff check` and `ruff format --check` |
+| Tests | 60 tests over the rules and the mockup |
+| Data quality | the rules against a fixture of real prototype data |
+| Pages payload | the mockup stays servable, internal doc links resolve |
+
+### One rule set, two callers
+
+The rules live in [`checks/rules.py`](checks/rules.py) as pure functions. CI runs
+them against fixtures; the `publish` command will run the same functions against
+the live export. A defect cannot reach `sites.json` by taking a different code
+path.
+
+```bash
+python -m checks outlets.csv --coverage coverage.csv
+python -m checks outlets.csv --export sites.json   # before publishing
+```
+
+**ERROR** blocks a publish. **WARN** is counted and reported but does not block —
+a missing county is curation backlog, not corruption, and a permanently red
+pipeline gets ignored.
+
+The single most important rule is `export_columns_allowlisted`: a column not on
+the public allowlist fails the publish. That is what stops an admin field such as
+`paused_reason` reaching the public site when someone adds it upstream.
+
+### The fixture is expected to fail
+
+[`tests/fixtures/`](tests/fixtures/) holds 32 outlets and 88 coverage records
+sampled from the real prototype data and chosen to contain every known defect.
+The data-quality job asserts the run **fails** and that each named rule fires. A
+clean run there means detection has regressed, not that the data got better.
+
+Against the full prototype dataset the rules currently report:
+
+| Rule | Errors |
+|---|---|
+| `merge_requires_review` | 222 |
+| `state_not_abbreviated` | 73 |
+| `no_header_artifacts` | 3 |
+| `no_url_in_medium` | 2 |
+| `no_placeholder_domain` | 2 |
+
+That 222 is the same figure the migration analysis arrived at independently, which
+is the point: the defect is now a test rather than a paragraph.
+
+### Not yet wired
+
+Deployment. When the Django app and GCP project exist, deploys should run from
+GitHub Actions via Workload Identity Federation — as the crawler already does —
+so no human holds production write access.
+
 ## Cost
 
 | Line item | Monthly |
@@ -178,9 +235,11 @@ Two things that are easy to get wrong and are not optional:
 
 Nothing is built yet.
 
+- [x] CI: lint, tests, data-quality rules
 - [ ] Schema review — [`schema/models_draft.py`](schema/models_draft.py)
 - [ ] Django project, admin, import/export and history wired up
 - [ ] `import_source`, `rebuild_outlets`, `publish` management commands
 - [ ] GCP project, Cloud SQL, IAP, bucket
 - [ ] Widget build and the WordPress shortcode plugin
+- [ ] Deploy workflow via Workload Identity Federation
 - [ ] Work the review queue: 222 suspect merges, 138 missing domains, 103 missing media

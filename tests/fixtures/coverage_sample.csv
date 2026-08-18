@@ -1,0 +1,89 @@
+outlet_id,source_file,source_sheet,outlet_name_raw,url,medium,state,county,city,notes,mun_id,gnis,domains_set_length,article_length,ownership,ownership_type,founded,closed_date,updated_on,newsbank_availability
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Asbury Park,https://patch.com/new-jersey/asbury-park,Online,New Jersey,,,,13,885141.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Barnegat-Manahawkin,https://patch.com/new-jersey/barnegat-manahawkin,Online,New Jersey,,,,21,882070.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Barnegat-Manahawkin,https://patch.com/new-jersey/barnegat-manahawkin,Online,New Jersey,,,,476,882069.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Basking Ridge,https://patch.com/new-jersey/baskingridge,Online,New Jersey,,,,38,882174.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Belleville-Nutley,https://patch.com/new-jersey/belleville,Online,New Jersey,,,,29,1729713.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Belleville-Nutley,https://patch.com/new-jersey/belleville,Online,New Jersey,,,,359,1729715.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Berkeley,https://patch.com/new-jersey/berkeley-nj,Online,New Jersey,,,,35,882073.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Bernardsville-Bedminster,https://patch.com/new-jersey/bernardsville-bedminster,Online,New Jersey,,,,28,882176.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Bernardsville-Bedminster,https://patch.com/new-jersey/bernardsville-bedminster,Online,New Jersey,,,,39,885159.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Bloomfield,https://patch.com/new-jersey/bloomfield,Online,New Jersey,,,,43,1729714.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Brick,https://patch.com/new-jersey/brick,Online,New Jersey,,,,55,882075.0,,,,,,,,
+1107,NJ Sample Data(1).xlsx,Sheet1,Patch-Bridgewater,https://patch.com/new-jersey/bridgewater,Online,New Jersey,,,,57,882171.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,"Gleaner, The",https://no website,Newspaper,New Jersey,,,,69,885177.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Glen Ridge Voice,https://no website,Newspaper,New Jersey,,,,174,2390559.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Glen Rock Gazette,https://no website,Newspaper,New Jersey,,,,175,885233.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Gloucester City News,https://no website,Newspaper,New Jersey,,,,30,885155.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Gloucester City News,https://no website,Newspaper,New Jersey,,,,60,885174.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Gloucester City News,https://no website,Newspaper,New Jersey,,,,176,885234.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Gloucester City News,https://no website,Newspaper,New Jersey,,,,330,885313.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Gloucester City News,https://no website,Newspaper,New Jersey,,,,438,885382.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Gloucester City News,https://no website,Newspaper,New Jersey,,,,543,885440.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Hackensack Chronicle,https://no website,Newspaper,New Jersey,,,,184,885236.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Hawthorne Press,https://no website,Newspaper,New Jersey,,,,190,885240.0,,,,,,,,
+1035,NJ Sample Data(1).xlsx,Sheet1,Hawthorne Press,https://no website,Newspaper,New Jersey,,,,208,885249.0,,,,,,,,
+439,News outlets (around Plant Vogtle).xlsx,Medill comlement,The Aiken Leader,https://facebook.com/profile.php,Newspaper,South Carolina,,"Aiken, SC",No,,,,,,,,,,No
+439,News outlets (around Plant Vogtle).xlsx,Medill comlement,Bamberg County Leader,https://facebook.com/bambergcountyleader,Newspaper,South Carolina,"Bamberg County, SC","Bamberg, SC",No,,,,,,,,,,No
+439,News outlets (around Plant Vogtle).xlsx,Medill comlement,Black News,https://facebook.com/p/SC-Black-News-100063602620778,Ethnic Outlets,South Carolina,,"Columbia, SC",No,,,,,,,,,,No
+439,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Milton Herald,https://facebook.com/MiltonHerald,Facebook group,Georgia,Cherokee GA,Milton,,,,,,,,,,,
+439,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,The North Gwinnett Voice,https://facebook.com/northgwinnettvoice,Facebook group,Georgia,Hall GA,Buford,,,,,,,,,,,
+439,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Edmonson News,https://facebook.com/Edmonsonsnews,Facebook group,Kentucky,Edmonson KY,Brownsville,,,,,,,,,,,
+439,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Tri-City News,https://facebook.com/tcnky,Newspaper,Kentucky,Harlan KY,Cumberland,Facebook group,,,,,,,,,,
+439,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Three Forks Tradition,https://facebook.com/ThreeForksTradition,Facebook page,Kentucky,Lee KY,Beattyville,,,,,,,,,,,
+439,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Leslie County News,https://facebook.com/lesliecountynews,Newspaper,Kentucky,Leslie KY,Hyden,Facebook group,,,,,,,,,,
+439,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,The Edmonton Herald-News,https://facebook.com/EdmontonHeraldNews,Newspaper,Kentucky,Metcalfe KY,Edmonton,Facebook group,,,,,,,,,,
+439,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,The Clay City Times,https://facebook.com/ClayCityTimes,Newspaper,Kentucky,Powell KY,Clay City,,,,,,,,,,,
+439,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Mount Vernon Signal,https://facebook.com/p/Mount-Vernon-Signal-100083964134756,Newspaper,Kentucky,Rockcastle KY,Mount Vernon,Facebook group,,,,,,,,,,
+1665,News outlets (around Prairie Island).xlsx,Medill complement,Outlet Name,https://url,Type,State,County,,,,,,,,,,,,
+1665,News outlets (around Prairie Island).xlsx,Medill complement,Outlet Name,https://url,Type,State,County,,,,,,,,,,,,
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,Georgia,"Columbia County, GA",,,,,,,,,,,,No
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,Georgia,"Glascock County, GA",,,,,,,,,,,,No
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,Georgia,"Warren County, GA",,,,,,,,,,,,No
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,Georgia,"Montgomery County, GA",,,,,,,,,,,,No
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,Georgia,"Hancock County, GA",,,,,,,,,,,,No
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,Georgia,"Treutlen County, GA",,,,,,,,,,,,No
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,Georgia,"Twiggs County, GA",,,,,,,,,,,,No
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,Georgia,"Wilcox County, GA",,,,,,,,,,,,No
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,Georgia,"Wilkinson County, GA",,,,,,,,,,,,No
+1966,News outlets (around Plant Vogtle).xlsx,Medill comlement,/,,,South Carolina,"Saluda County, SC",,,,,,,,,,,,No
+1966,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Newspapers,,https://www.gordongazettega.com/news,Georgia,Gordon GA,Gorden Gazette,,,,,,,,,,,
+337,PPPO_Newspapers(Combined KY).csv,Sheet1,Daily Corinthian,https://dailycorinthian.com,Newspaper,MS,Alcorn MS,Corinth,,,,,,,,,,,
+149,News outlets (around Plant Vogtle).xlsx,GA,Atlanta Business Chronicle,https://bizjournals.com/atlanta,,Georgia,,,,,,,,,,,,,
+149,News outlets (around Plant Vogtle).xlsx,Medill comlement,Atlanta Business Chronicle,https://bizjournals.com/atlanta,Newspaper,Georgia,,"Atlanta, GA",Yes,,,,,,,,,,No
+149,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Nashville Business Journal,https://bizjournals.com/nashville,Newspaper,Tennessee,Davidson TN,Nashville,,,,,,,,,,,
+149,PPPO_Newspapers(Combined OH).csv,Sheet1,Columbus Business First,https://bizjournals.com/columbus,Online,Ohio,Franklin OH,Columbus,,,,,,,,,,,
+149,PPPO_Newspapers(Combined OH).csv,Sheet1,Cincinnati Business Courier,https://bizjournals.com/cincinnati,Newspaper,Ohio,Hamilton OH,Cincinnati,,,,,,,,,,,
+149,PPPO_Newspapers(Combined OH).csv,Sheet1,Dayton Business Journal,https://bizjournals.com/dayton,Newspaper,Ohio,Montgomery OH,Dayton,,,,,,,,,,,
+1265,Minnesota Data.csv,Sheet1,SE Minnesota News,https://seminnesotanews.com,Online,Minnesota,,,Minnesota statewide,,,,,Metric Media,multi-state nonprofit,,,2024-09-16,
+1101,PPPO_Newspapers(Combined KY).csv,Sheet1,The Paris Post-Intelligencer,https://parispi.net/local-news,Newspaper,Tennessee,Henry TN,Paris,,,,,,,,,,,
+1272,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Sevier News Messenger,https://seviernewsmessenger.com,Newspaper,Tennessee,Sevier TN,Sevierville,,,,,,,,,,,
+1258,Minnesota Data.csv,Sheet1,SC Minnesota News,https://scminnesotanews.com,Online,Minnesota,,,Minnesota statewide,,,,,Metric Media,multi-state nonprofit,,,2024-09-16,
+73,Minnesota Data.csv,Sheet1,The Alley,https://alleynews.org,Newspaper,Minnesota,,,Phillips neighborhood,,,,,Alley Communications,nonprofit,1976,,2024-09-03,
+73,News outlets (around Prairie Island).xlsx,MN,The Alley,https://alleynews.org,Newspaper,Minnesota,,Minneapolis,Phillips neighborhood,,,,,Alley Communications,nonprofit,,,,
+1597,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Time-Courier,https://timescourier.com,Newspaper,Georgia,Gilmer GA,Ellijay,,,,,,,,,,,
+514,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Go Fountain Inn,https://gofountaininn.com,Magazine,South Carolina,Greenville SC,Fountain Inn,,,,,,,,,,,
+4,Minnesota Data.csv,Sheet1,George and Jess in the Morning on Country 103.5 Mankato Radio,https://1035kysm.com,Radio,Minnesota,,,Mankato-North Mankato metro area,,,,,Alpha Media LLC,commercial chain,"January 31, 1948",,2024-02-07,
+4,News outlets (around Prairie Island).xlsx,MN,George and Jess in the Morning on Country 103.5 Mankato Radio,https://1035kysm.com,Radio,Minnesota,,Mankato,Mankato-North Mankato metro area,,,,,Alpha Media LLC,commercial chain,,,,
+1408,PPPO_Newspapers(Combined OH).csv,Sheet1,The Big Sandy News,https://thebigsandynews.com/about,Newspaper,Kentucky,Lawrence KY,Louisa,,,,,,,,,,,
+1296,PPPO_Newspapers(Combined OH).csv,Sheet1,Somerset-Pulaski Advocate,https://somerset-pulaski-advocate.org,Online,Kentucky,Pulaski KY,Somerset,Includes some political advocacy,,,,,,,,,,
+1172,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,WCAB,https://purecountry101.com,Radio,North Carolina,Rutherford NC,Rutherfordton,,,,,,,,,,,
+1664,PPPO_Newspapers(Combined OH).csv,Sheet1,Urbana Daily Citizen,https://urbanacitizen.com,Newspaper,Ohio,Champaign OH,Urbana,,,,,,,,,,,
+493,News outlets (around Plant Vogtle).xlsx,Medill comlement,Georgia Post,https://gapostbyronbuzz.com,Newspaper,Georgia,"Crawford County, GA","Roberta, GA",No,,,,,,,,,,No
+264,News outlets (around Plant Vogtle).xlsx,Medill comlement,Claxton Enterprise,https://claxtonenterprise.com,Newspaper,Georgia,"Evans County, GA","Claxton, GA",Yes,,,,,,,,,,No
+821,Minnesota Data.csv,Sheet1,Rock 95,https://mankatosrock.com,Radio,Minnesota,,,Mankato-North Mankato metro area,,,,,Alpha Media LLC,commercial chain,,,2024-02-07,
+821,News outlets (around Prairie Island).xlsx,MN,Rock 95,https://mankatosrock.com,Radio,Minnesota,,Mankato,Mankato-North Mankato metro area,,,,,Alpha Media LLC,commercial chain,,,,
+810,Oak Ridge_Newspapers(Combined) (1).csv,Sheet1,Macon County Chronicle,https://maconcountychronicle.com,Newspaper,Tennessee,Macon TN,Lafayette,,,,,,,,,,,
+364,PPPO_Newspapers(Combined KY).csv,Sheet1,Delta Dunklin Democrat,https://dddnews.com,Newspaper,Missouri,Dunklin MO,Kennett,,,,,,,,,,,
+251,PPPO_Newspapers(Combined OH).csv,Sheet1,Citizens for Bourbon County,https://citizensforbourboncounty.org/news-%26-updates,Newspaper,Kentucky,Bourbon KY,Paris,,,,,,,,,,,
+691,PPPO_Newspapers(Combined OH).csv,Sheet1,The Kenyon Collegian,https://kenyoncollegian.com,Newspaper,Ohio,Knox OH,Gambier,"Student-led paper, but exclusively covers news on town; needs discussion for inclusion",,,,,,,,,,
+1903,PPPO_Newspapers(Combined KY).csv,Sheet1,WSIL-TV (ABC),https://wsiltv.com,Television,Illinois,Saline IL,Harrisburg,,,,,,,,,,,
+1903,PPPO_Newspapers(Combined KY).csv,Sheet1,WSIL-TV (ABC),https://wsiltv.com,Television,Illinois,Williamson IL,Carterville,,,,,,,,,,,
+1728,News outlets (around Prairie Island).xlsx,WI,WCOW (97.1 FM),https://wcowradio.com,Radio,Wisconsin,,,,,,,,,,,,,
+121,NJ Sample Data(1).xlsx,Sheet1,Baristanet,https://baristanet.com,Online,New Jersey,,,,43,1729714.0,,,,,,,,
+121,NJ Sample Data(1).xlsx,Sheet1,Baristanet,https://baristanet.com,Online,New Jersey,,,,174,2390559.0,,,,,,,,
+121,NJ Sample Data(1).xlsx,Sheet1,Baristanet,https://baristanet.com,Online,New Jersey,,,,320,1729720.0,,,,,,,,
+1618,NJ Sample Data(1).xlsx,Sheet1,Transportation Radio,https://transportationradio.com,Radio,New Jersey,,,,129,885205.0,,,,,,,,
+1618,NJ Sample Data(1).xlsx,Sheet1,Transportation Radio,https://transportationradio.com,Radio,New Jersey,,,,345,885317.0,,,,,,,,
+1089,PPPO_Newspapers(Combined KY).csv,Sheet1,Our Times Newspaper,https://ourtimesnews.org,Newspaper,Indiana,Vanderburgh IN,Evansville,,,,,,,,,,,
+1271,Minnesota Data.csv,Sheet1,SE Twin Cities,https://setwincities.com,Online,Minnesota,,,Minneapolis-St. Paul-Bloomington metro area,,,,,Metric Media,multi-state nonprofit,,,2024-09-16,
