@@ -1,0 +1,367 @@
+<title>LNIC Source Directory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@500;600;700&display=swap">
+
+<style>
+/* ------------------------------------------------------------------
+   Tokens lifted from localnewsimpact.org (Divi theme, studies page).
+   Deliberately light-only: this is a fidelity mock of a light WP page.
+   ------------------------------------------------------------------ */
+:root{
+  --ground:#ffffff;
+  --ground-note:#f4fafd;      /* neutral biased toward the site accent */
+  --rule:#dddddd;
+  --rule-soft:#ebeff1;
+  --th-bg:#f2f2f2;
+  --ink:#333333;
+  --ink-strong:#1c2a31;
+  --ink-muted:#6a7a83;        /* cyan-biased grey, not a default mid-grey */
+  --accent:#66cef6;           /* LNIC Divi accent */
+  --accent-wash:#e8f7fe;
+  --link:#0073aa;             /* studies-table link colour */
+  --link-hover:#005177;
+  --font-head:'Montserrat',Helvetica,Arial,sans-serif;
+  --font-body:'Lato',Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--font-body);font-size:16px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+/* --- mock chrome ------------------------------------------------- */
+.note{background:var(--ground-note);border-bottom:1px solid var(--rule-soft)}
+.note .wrap{display:flex;gap:14px;align-items:flex-start;padding-block:14px}
+.note b{font-family:var(--font-head);font-weight:600;color:var(--ink-strong)}
+.note p{margin:0;font-size:13.5px;color:var(--ink-muted);max-width:76ch}
+.tag{
+  flex:none;font-family:var(--font-head);font-size:10.5px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:#0b5f80;
+  background:var(--accent-wash);border:1px solid var(--accent);
+  border-radius:3px;padding:3px 8px;margin-top:2px;
+}
+
+/* --- page header, mirroring /studies/ ---------------------------- */
+header.page{padding:44px 0 8px}
+header.page h1{
+  font-family:var(--font-head);font-weight:600;font-size:40px;line-height:1.2;
+  margin:0;color:var(--ink-strong);text-wrap:balance;
+}
+header.page p.sub{margin:10px 0 0;font-size:18px;color:var(--ink-muted)}
+
+/* --- controls ----------------------------------------------------- */
+.controls{display:grid;grid-template-columns:minmax(240px,1.5fr) repeat(3,minmax(0,1fr));gap:12px;margin:28px 0 0}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{
+  font-family:var(--font-head);font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-muted);
+}
+.field input,.field select{
+  font-family:var(--font-body);font-size:15px;color:var(--ink);
+  background:var(--ground);border:1px solid var(--rule);border-radius:3px;
+  padding:9px 10px;width:100%;min-width:0;
+}
+.field select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink-muted) 50%),linear-gradient(135deg,var(--ink-muted) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.field input:focus,.field select:focus{border-color:var(--accent);outline:2px solid var(--accent-wash);outline-offset:0}
+
+/* --- meta bar ----------------------------------------------------- */
+.meta{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin-top:18px}
+.count{font-size:14px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+.count strong{color:var(--ink-strong);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  font-size:12.5px;background:var(--accent-wash);color:#0b5f80;
+  border:1px solid var(--accent);border-radius:999px;padding:2px 9px;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.chip button{background:none;border:0;color:inherit;font-size:14px;line-height:1;cursor:pointer;padding:0}
+.spacer{flex:1 1 auto}
+.btn{
+  font-family:var(--font-head);font-size:13px;font-weight:600;letter-spacing:.02em;
+  border-radius:3px;padding:9px 16px;cursor:pointer;border:1px solid transparent;
+}
+.btn-primary{background:var(--link);color:#fff}
+.btn-primary:hover{background:var(--link-hover)}
+.btn-ghost{background:none;color:var(--link);border-color:var(--rule)}
+.btn-ghost:hover{border-color:var(--accent);background:var(--accent-wash)}
+
+/* --- table -------------------------------------------------------- */
+.tablewrap{overflow-x:auto;margin-top:14px}
+table{width:100%;border-collapse:collapse;margin:0}
+th,td{border:1px solid var(--rule);padding:12px 8px;text-align:left;vertical-align:top}
+th{background:var(--th-bg);color:var(--ink);font-family:var(--font-head);font-weight:600;font-size:13px;white-space:nowrap}
+th button{
+  background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+}
+th .arrow{color:var(--accent);font-size:10px;opacity:0}
+th[aria-sort] .arrow{opacity:1;color:var(--link)}
+td{font-size:15px}
+td a{color:var(--link);font-weight:700;text-decoration:none}
+td a:hover{text-decoration:underline}
+td .domain{display:block;font-size:12.5px;color:var(--ink-muted);font-weight:400}
+tbody tr:nth-child(even){background:#fafcfd}
+.pill{
+  font-size:11.5px;font-family:var(--font-head);font-weight:600;
+  border-radius:999px;padding:2px 8px;white-space:nowrap;
+  background:var(--accent-wash);color:#0b5f80;
+}
+.unk{color:#9aa8ae;font-style:italic}
+.empty{padding:48px 8px;text-align:center;color:var(--ink-muted)}
+
+/* --- pager -------------------------------------------------------- */
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin:16px 0 56px;font-size:14px}
+.pager span{color:var(--ink-muted);font-variant-numeric:tabular-nums;margin-right:6px}
+.pager button{font-family:var(--font-body);font-size:14px;background:none;border:1px solid var(--rule);border-radius:3px;padding:6px 12px;color:var(--link);cursor:pointer}
+.pager button:hover:not(:disabled){border-color:var(--accent);background:var(--accent-wash)}
+.pager button:disabled{color:#b7c2c8;cursor:default}
+
+/* --- export dialog ------------------------------------------------ */
+dialog{border:1px solid var(--rule);border-radius:4px;padding:0;max-width:760px;width:calc(100% - 48px)}
+dialog::backdrop{background:rgba(20,38,46,.45)}
+.dlg-head{padding:18px 20px 12px;border-bottom:1px solid var(--rule-soft)}
+.dlg-head h2{margin:0;font-family:var(--font-head);font-weight:600;font-size:19px;color:var(--ink-strong)}
+.dlg-head p{margin:6px 0 0;font-size:13.5px;color:var(--ink-muted)}
+.dlg-body{padding:14px 20px}
+textarea{
+  width:100%;height:210px;font-family:'Courier New',monospace;font-size:12.5px;
+  color:var(--ink);border:1px solid var(--rule);border-radius:3px;padding:10px;resize:vertical;
+  white-space:pre;background:#fbfdfe;
+}
+.dlg-foot{display:flex;gap:10px;justify-content:flex-end;padding:0 20px 18px}
+
+/* --- responsive: cards under 700px -------------------------------- */
+@media (max-width:820px){
+  .controls{grid-template-columns:1fr 1fr}
+  .controls .field:first-child{grid-column:1/-1}
+}
+@media (max-width:700px){
+  header.page h1{font-size:30px}
+  .tablewrap{overflow-x:visible}
+  table,tbody,tr,td{display:block;width:100%}
+  thead{display:none}
+  tbody tr{border:1px solid var(--rule);border-radius:3px;margin-bottom:10px;padding:4px 0;background:var(--ground)!important}
+  td{border:0;padding:6px 14px;display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:baseline}
+  td::before{content:attr(data-label);font-family:var(--font-head);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted)}
+  td:first-child{padding-top:12px}
+  td:last-child{padding-bottom:12px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="note"><div class="wrap">
+  <span class="tag">Mockup</span>
+  <p><b>Not connected to anything.</b> The 159 rows are real Missouri outlets from the crawler's live source export &mdash; real names, cities, counties, owners and domains, nothing invented. Search, facets, sort, paging and export all run client-side against one loaded JSON file, exactly as the production widget would. Two notes: the export carries no <code>frequency</code> (empty for all 160 rows in the real data, so it is not shown rather than faked), and crawler-operational fields like <code>status</code> and <code>paused_reason</code> are deliberately withheld from the public export &mdash; a live example of the public/admin column split. <b>Export</b> opens a preview panel here because the artifact viewer blocks downloads; embedded in WordPress it saves a <code>.csv</code>.</p>
+</div></div>
+
+<div class="wrap">
+  <header class="page">
+    <h1>News Source Directory</h1>
+    <p class="sub">Missouri outlets tracked by the Local News Impact Consortium</p>
+  </header>
+
+  <div class="controls">
+    <div class="field">
+      <label for="q">Search</label>
+      <input id="q" type="search" placeholder="Outlet, city, county, owner, domain&hellip;" autocomplete="off">
+    </div>
+    <div class="field"><label for="f-county">County</label><select id="f-county"></select></div>
+    <div class="field"><label for="f-media">Media type</label><select id="f-media"></select></div>
+    <div class="field"><label for="f-owner">Owner</label><select id="f-owner"></select></div>
+  </div>
+
+  <div class="meta">
+    <p class="count" id="count" aria-live="polite"></p>
+    <div class="chips" id="chips"></div>
+    <span class="spacer"></span>
+    <button class="btn btn-ghost" id="reset" type="button">Reset</button>
+    <button class="btn btn-primary" id="export" type="button">Export CSV</button>
+  </div>
+
+  <div class="tablewrap">
+    <table id="tbl">
+      <thead><tr id="hrow"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="pager">
+    <span id="range"></span>
+    <button id="prev" type="button">&larr; Previous</button>
+    <button id="next" type="button">Next &rarr;</button>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <div class="dlg-head">
+    <h2>Export &mdash; <span id="dlg-n"></span></h2>
+    <p>In the WordPress embed this downloads as <code>lnic-sources.csv</code>. The viewer here blocks downloads, so the file is shown for copying.</p>
+  </div>
+  <div class="dlg-body"><textarea id="csv" readonly spellcheck="false"></textarea></div>
+  <div class="dlg-foot">
+    <button class="btn btn-ghost" id="dlg-close" type="button">Close</button>
+    <button class="btn btn-primary" id="dlg-copy" type="button">Copy to clipboard</button>
+  </div>
+</dialog>
+
+<script id="seed" type="application/json">[{"name":"417 Magazine","city":"Springfield","county":"Greene","media":"Print","owner":"","domain":"417mag.com","url":"https://www.417mag.com"},{"name":"ABC 17 KMIZ News","city":"Columbia","county":"Boone","media":"TV","owner":"The St. News-Press & Gazette Company","domain":"abc17news.com","url":"https://abc17news.com"},{"name":"Atchinson County Mail","city":"Rockport","county":"Atchinson","media":"Print","owner":"Farmer W C & Mike","domain":"farmerpublishing.com","url":"https://farmerpublishing.com"},{"name":"Barry County Advertiser","city":"Cassville","county":"Barry","media":"Print","owner":"Melton Publishing Inc","domain":"4bcaonline.com","url":"https://www.4bcaonline.com"},{"name":"Benton County Enterprise","city":"Warsaw","county":"Benton","media":"Print","owner":"Benton County Enterprise","domain":"bentoncountyenterprise.com","url":"https://www.bentoncountyenterprise.com"},{"name":"Bethany Republican Clipper","city":"Bethany","county":"Harrison","media":"Print","owner":"Bethany Printing Co","domain":"bethanyclipper.com","url":"https://www.bethanyclipper.com"},{"name":"Bolivar Herald Free Press","city":"Bolivar","county":"Polk","media":"Print","owner":"Community Publishers Inc","domain":"bolivarmonews.com","url":"https://bolivarmonews.com"},{"name":"Boone County Journal","city":"Ashland","county":"Boone","media":"Print","owner":"Bruce Wallace","domain":"columbiamissourian.com","url":"https://columbiamissourian.com/boonecountyjournal"},{"name":"Booneville Daily News","city":"Booneville","county":"Cooper","media":"Print","owner":"Gannett","domain":"boonvilledailynews.com","url":"https://www.boonvilledailynews.com"},{"name":"Branson Tri-Lakes News","city":"Hollister","county":"Taney","media":"Print","owner":"Lancaster Management Inc","domain":"bransontrilakesnews.com","url":"https://www.bransontrilakesnews.com"},{"name":"Buffalo Reflex","city":"Buffalo","county":"Dallas","media":"Print","owner":"Community Publishers Inc","domain":"buffaloreflex.com","url":"https://buffaloreflex.com"},{"name":"California Democrat","city":"California","county":"Moniteau","media":"Print","owner":"WEHCO Media","domain":"californiademocrat.com","url":"https://www.californiademocrat.com"},{"name":"Carter Broadcast Group (KPRS/KPRT)","city":"Kansas City","county":"Wyandotte","media":"Radio","owner":"Carter Broadcast Group","domain":"kprs.com","url":"https://www.kprs.com"},{"name":"Carthage Press","city":"Carthage","county":"Jasper","media":"Print","owner":"RH Media Group","domain":"carthagenewsonline.com","url":"https://carthagenewsonline.com"},{"name":"Cass County News/The North Cass Herald","city":"Belton","county":"Cass","media":"Print","owner":"Laurie Bassett Edmonds and Allen Edmonds","domain":"northcassherald.com","url":"https://www.northcassherald.com"},{"name":"Cassville Democrat","city":"Cassville","county":"Barry","media":"Print","owner":"Rust Communications","domain":"cassville-democrat.com","url":"https://www.cassville-democrat.com"},{"name":"Centralia Fireside Guard","city":"Centralia","county":"Boone","media":"Print","owner":"Lakeway Publishers","domain":"firesideguard.com","url":"https://www.firesideguard.com"},{"name":"Christian County Headliner","city":"Ozark","county":"Christian","media":"Print","owner":"Community Publishers Inc","domain":"ccheadliner.com","url":"https://ccheadliner.com"},{"name":"Citizen Observer","city":"Cameron","county":"Clinton","media":"Print","owner":"Smith Newspapers","domain":"mycameronnews.com","url":"https://mycameronnews.com"},{"name":"Clinton Daily Democrat","city":"Clinton","county":"Henry","media":"Print","owner":"Clinton Daily Democrat","domain":"clintondailydemocrat.com","url":"https://www.clintondailydemocrat.com"},{"name":"Columbia Daily Tribune","city":"Columbia","county":"Boone","media":"Print","owner":"Gannett","domain":"columbiatribune.com","url":"https://www.columbiatribune.com"},{"name":"Columbia Missourian","city":"Columbia","county":"Boone","media":"Print","owner":"Missourian Publishing Association","domain":"columbiamissourian.com","url":"https://www.columbiamissourian.com"},{"name":"Constitution-Tribune","city":"Chillicothe","county":"Livingston","media":"Print","owner":"Gannett","domain":"chillicothenews.com","url":"https://www.chillicothenews.com"},{"name":"Courier Tribune","city":"Liberty","county":"Clay","media":"Print","owner":"Gatehouse Media","domain":"mycouriertribune.com","url":"https://www.mycouriertribune.com"},{"name":"Daily American Republic","city":"Poplar Bluff","county":"Butler","media":"Print","owner":"Rust Communications","domain":"darnews.com","url":"https://www.darnews.com"},{"name":"Daily Journal, Park Hills","city":"Park Hills","county":"St. Francois","media":"Print","owner":"Lee Enterprises","domain":"dailyjournalonline.com","url":"https://dailyjournalonline.com"},{"name":"Delta Dunklin Democrat","city":"Kennett","county":"Dunklin","media":"Print","owner":"Rust Communications","domain":"dddnews.com","url":"https://www.dddnews.com"},{"name":"Dos Mundos Bilingual Newspaper","city":"Overland Park","county":"Johnson","media":"Print","owner":"Clara Reyes","domain":"dosmundos.com","url":"https://dosmundos.com"},{"name":"Douglas County Herald","city":"Ava","county":"Douglas","media":"Print","owner":"Better Newspapers Inc","domain":"douglascountyherald.com","url":"https://www.douglascountyherald.com"},{"name":"El Dorado Springs Sun","city":"El Dorado Springs","county":"Cedar","media":"Print","owner":"Long Kenny","domain":"eldoradospringsmo.com","url":"https://eldoradospringsmo.com"},{"name":"Emissourian","city":"Washington","county":"Franklin","media":"Print","owner":"The Missourian Publishing Company","domain":"emissourian.com","url":"https://www.emissourian.com"},{"name":"Excelsior Springs Standard","city":"Excelsior Springs","county":"Clay","media":"Print","owner":"Excelsior publishing co.","domain":"excelsiorspringsstandard.com","url":"https://www.excelsiorspringsstandard.com"},{"name":"Fayette Advertiser","city":"Fayette","county":"Howard","media":"Print","owner":"Wood Creek Media","domain":"timesnewspapers.com","url":"https://www.timesnewspapers.com"},{"name":"FOX4KC WDAF TV","city":"Kansas City","county":"Wyandotte","media":"TV","owner":"Nexstar Media Group","domain":"fox4kc.com","url":"https://fox4kc.com"},{"name":"Gasconade County Republican","city":"Owensville","county":"Gasconade","media":"Print","owner":"Warden Publishing Group","domain":"gasconadecountyrepublican.com","url":"https://www.gasconadecountyrepublican.com"},{"name":"Gladstone Dispatch","city":"Gladstone","county":"Clay","media":"Print","owner":"NPG Newspapers","domain":"gladstonedispatch.com","url":"https://www.gladstonedispatch.com"},{"name":"Greene County Commonwealth","city":"Ashgrove","county":"St. Charles","media":"Print","owner":"Squibb Media","domain":"greenecountycommonwealth.com","url":"https://www.greenecountycommonwealth.com"},{"name":"Griffon News","city":"St. Joseph","county":"Buchanan","media":"Print","owner":"Missouri Western State University","domain":"griffonnews.com","url":"https://www.griffonnews.com"},{"name":"Hannibal Courier-Post","city":"Hannibal","county":"Marion","media":"Print","owner":"Phillips Media Group","domain":"hannibal.net","url":"https://www.hannibal.net"},{"name":"Houston Herald","city":"Houston","county":"Texas","media":"Print","owner":"Houston Newspapers Inc","domain":"houstonherald.com","url":"https://houstonherald.com"},{"name":"Howell County News","city":"Willow Springs","county":"Howell","media":"Print","owner":"Missouri Press Association","domain":"howellcountynews.com","url":"https://www.howellcountynews.com"},{"name":"Independent-Journal","city":"Potosi","county":"washington","media":"Print","owner":"Richards Neil","domain":"theijnews.com","url":"https://www.theijnews.com"},{"name":"Jefferson City News Tribune/News Tribune","city":"Jefferson City","county":"Cole","media":"Print","owner":"WEHCO Media","domain":"newstribune.com","url":"https://www.newstribune.com"},{"name":"KBIA","city":"Columbia","county":"Boone","media":"Radio","owner":"University of Missouri","domain":"kbia.org","url":"https://www.kbia.org"},{"name":"KCMO","city":"Wyandotte","county":"Kansas City","media":"Radio","owner":"Cumulus Media","domain":"949kcmo.com","url":"https://www.949kcmo.com"},{"name":"KCRG","city":"New Bloomfield","county":"Callaway County","media":"TV","owner":"","domain":"krcgtv.com","url":"https://krcgtv.com"},{"name":"KCTV5","city":"Kansas City","county":"Wyandotte","media":"TV","owner":"Meredith Corportation","domain":"kctv5.com","url":"https://www.kctv5.com"},{"name":"KCUR","city":"Kansas City","county":"Wyandotte","media":"Radio","owner":"University of Missouri-Kansas City","domain":"kcur.org","url":"https://www.kcur.org"},{"name":"KFTK","city":"St. Louis","county":"St. Louis","media":"Radio","owner":"Audacy Inc","domain":"audacy.com","url":"https://www.audacy.com/971talk"},{"name":"KFVS 12","city":"Heartland","county":"Cape Girardeau","media":"TV","owner":"Gray Television","domain":"kfvs12.com","url":"https://www.kfvs12.com"},{"name":"Kirksville Daily Express","city":"Kirskville","county":"Adair","media":"Print","owner":"Gannett","domain":"kirksvilledailyexpress.com","url":"https://www.kirksvilledailyexpress.com"},{"name":"KMBC News 9","city":"Kansas City","county":"Wyandotte","media":"TV","owner":"Hearst Television","domain":"kmbc.com","url":"https://www.kmbc.com"},{"name":"KMOV CBS","city":"St. Louis","county":"St. Louis","media":"TV","owner":"Meredith Local Media","domain":"kmov.com","url":"https://www.kmov.com"},{"name":"KOAM","city":"Joplin","county":"Jasper and Newton","media":"TV","owner":"Morgan Murphy Media","domain":"koamnewsnow.com","url":"https://www.koamnewsnow.com"},{"name":"KOLR","city":"Springfield","county":"Greene","media":"TV","owner":"Mission Broadcasting Inc","domain":"ozarksfirst.com","url":"https://www.ozarksfirst.com"},{"name":"KOMU","city":"Columbia","county":"Boone","media":"TV","owner":"University of Missouri","domain":"komu.com","url":"https://www.komu.com"},{"name":"KOSP/The Beat","city":"Springfield","county":"Greene","media":"Radio","owner":"Mid-West Family Broadcasting","domain":"929thebeat.com","url":"https://www.929thebeat.com"},{"name":"KPLR11/Fox 2 Now","city":"St. Louis","county":"St. Louis","media":"TV","owner":"Nexstar Media Group","domain":"fox2now.com","url":"https://fox2now.com"},{"name":"KRCU","city":"Cape Giradeau","county":"Cape Giradeau/Scott","media":"Radio","owner":"Southeast Missouri State University","domain":"krcu.org","url":"https://www.krcu.org"},{"name":"KRZK","city":"Branson","county":"Taney/Stone","media":"Radio","owner":"KOMC-KRZK","domain":"legends1063.fm","url":"https://www.legends1063.fm"},{"name":"KSDK NBC","city":"St. Louis","county":"St. Louis","media":"TV","owner":"Tegna Inc","domain":"ksdk.com","url":"https://www.ksdk.com"},{"name":"KSMU Ozarks Public Radio","city":"Springfield","county":"Greene","media":"Radio","owner":"Missouri State University","domain":"ksmu.org","url":"https://www.ksmu.org"},{"name":"KSN/KODE TV","city":"Joplin","county":"Jasper and Newton","media":"TV","owner":"Mission Broadcasting Inc","domain":"fourstateshomepage.com","url":"https://www.fourstateshomepage.com"},{"name":"KSPR/KY3","city":"Springfield","county":"Greene","media":"TV","owner":"Gray Television","domain":"ky3.com","url":"https://www.ky3.com"},{"name":"KTTS","city":"Springfield","county":"Greene","media":"Radio","owner":"Summit Media","domain":"ktts.com","url":"https://www.ktts.com"},{"name":"KXCV","city":"Maryville","county":"Nodaway","media":"Radio","owner":"Nothwest Missouri State University","domain":"kxcv.org","url":"https://www.kxcv.org"},{"name":"KZRG","city":"Joplin","county":"Jasper","media":"Radio","owner":"Zimmer Radio","domain":"newstalkkzrg.com","url":"https://www.newstalkkzrg.com"},{"name":"Lake Gazette","city":"Monroe City","county":"Marion and Ralls","media":"Print","owner":"Lakeway Publishers","domain":"lakegazette.net","url":"https://www.lakegazette.net"},{"name":"Lake Sun Leader/Lake News Online","city":"Camdentown","county":"Camden","media":"Print","owner":"Gate House Media","domain":"lakenewsonline.com","url":"https://www.lakenewsonline.com"},{"name":"Lawrence County Record","city":"Mount Vernon","county":"Lawrence","media":"Print","owner":"Squibb Media","domain":"lawrencecountyrecord.com","url":"https://www.lawrencecountyrecord.com"},{"name":"Lee's Summit Tribune","city":"Lee's Summit","county":"Jackson and Cass","media":"Print","owner":"Linda Ahern","domain":"lstribune.net","url":"https://lstribune.net"},{"name":"Lehigh Valley News","city":"Bethlehem","county":"Northampton","media":"","owner":"","domain":"lehighvalleynews.com","url":"https://www.lehighvalleynews.com"},{"name":"Lincoln News Now","city":"Troy","county":"Lincoln","media":"Print","owner":"Lincoln County Journal Inc","domain":"lincolnnewsnow.com","url":"https://www.lincolnnewsnow.com"},{"name":"Linn County Leader","city":"Brookfield","county":"Brookfield","media":"Print","owner":"Gannett/Gatehouse","domain":"linncountyleader.com","url":"https://www.linncountyleader.com"},{"name":"Maries County Advocate","city":"Belle","county":"Maries","media":"Print","owner":"Tri-County Newspapers Inc","domain":"mariescountyadvocate.com","url":"https://mariescountyadvocate.com"},{"name":"Marshfield Mail","city":"Marshfield","county":"Webster","media":"Print","owner":"Community Publishers Inc","domain":"marshfieldmail.com","url":"https://marshfieldmail.com"},{"name":"McDonald County Press","city":"Pineville","county":"McDonald","media":"Print","owner":"Wehco Media","domain":"mdcp.nwaonline.com","url":"https://mdcp.nwaonline.com"},{"name":"Memphis Democrat","city":"Memphis","county":"Scotland","media":"Print","owner":"Feeney Chris","domain":"memphisdemocrat.com","url":"https://www.memphisdemocrat.com"},{"name":"Metro Voice Christian Newspaper","city":"Lee's Summit","county":"Jackson and Cass","media":"Print","owner":"Dwight and Anita Widaman","domain":"metrovoicenews.com","url":"https://metrovoicenews.com"},{"name":"Missouri Lawyers","city":"Hillsboro","county":"Jefferson","media":"Print","owner":"Bridgetower Media","domain":"molawyersmedia.com","url":"https://molawyersmedia.com"},{"name":"Missouri Net","city":"","county":"","media":"Digital","owner":"","domain":"missourinet.com","url":"https://www.missourinet.com"},{"name":"Missouri Scout","city":"","county":"","media":"Digital","owner":"","domain":"moscout.com","url":"https://moscout.com"},{"name":"Moberly Monitor","city":"Moberly","county":"Randolph","media":"Print","owner":"Gannett","domain":"moberlymonitor.com","url":"https://moberlymonitor.com"},{"name":"Montgomery Standard","city":"Montgomery City","county":"Montgomery","media":"Print","owner":"Tim Schmidt","domain":"mystandardnews.com","url":"https://www.mystandardnews.com"},{"name":"My Mo info","city":"Farmington","county":"St. Francois","media":"Radio","owner":"GoodRadio.TV","domain":"mymoinfo.com","url":"https://www.mymoinfo.com"},{"name":"Neosho Daily News","city":"Neosho","county":"Newton","media":"Print","owner":"Sexton Media Group","domain":"sgfneighborhoodnews.com","url":"https://sgfneighborhoodnews.com"},{"name":"News Press Now","city":"St. Joseph","county":"Buchanan","media":"Print","owner":"Newspress and Gazette Company","domain":"newspressnow.com","url":"https://www.newspressnow.com"},{"name":"Newstime","city":"St. Louis","county":"St. Louis","media":"Print","owner":"Lakeway Publishers","domain":"newstime-mo.com","url":"https://www.newstime-mo.com"},{"name":"North East News","city":"Kansas City","county":"Wyandotte","media":"Print","owner":"Collins, Leslie","domain":"northeastnews.net","url":"https://northeastnews.net"},{"name":"North West Missourian","city":"Maryville","county":"Nodaway","media":"Print","owner":"Northwest Missouri State University","domain":"nwmissourinews.com","url":"https://www.nwmissourinews.com"},{"name":"Northwest Mo Media","city":"Bethany","county":"","media":"Radio","owner":"","domain":"northwestmoinfo.com","url":"https://www.northwestmoinfo.com"},{"name":"Ozark County Times","city":"Gainesville","county":"Ozark","media":"Print","owner":"Lebanon Publishing Co","domain":"ozarkcountytimes.com","url":"https://www.ozarkcountytimes.com"},{"name":"Palmyra Spectator","city":"Palmyra","county":"Marion","media":"Print","owner":"Cheffey Mark & Patty","domain":"palmyra-spectator.com","url":"https://www.palmyra-spectator.com"},{"name":"Perryville Republic Monitor","city":"Republic","county":"Greene","media":"Print","owner":"Community Publishers Inc","domain":"republicmonitor.com","url":"https://republicmonitor.com"},{"name":"Phelps County Focus","city":"Rolla","county":"Phelps","media":"Print","owner":"Salem Publishing","domain":"phelpscountyfocus.com","url":"https://www.phelpscountyfocus.com"},{"name":"Pike County News/Bowling Green Times","city":"Bowling Green","county":"Pike","media":"Print","owner":"Lakeway Publishers","domain":"pikecountynews.com","url":"https://www.pikecountynews.com"},{"name":"Press News Journal","city":"Canton","county":"Lewis","media":"Print","owner":"Lewis County Press","domain":"lewispnj.com","url":"https://lewispnj.com"},{"name":"Pulaski County Mirror/Daily News","city":"Saint Robert","county":"Pulaski","media":"Print","owner":"Lebanon Publishing Co","domain":"pulaskicountydaily.com","url":"https://www.pulaskicountydaily.com"},{"name":"Radio Red Latina","city":"St. Louis","county":"St. Louis","media":"Radio","owner":"","domain":"redlatinastl.com","url":"https://www.redlatinastl.com"},{"name":"Reynolds County Courier/WayNe County Journal Banner","city":"Ellington","county":"Reynolds","media":"Print","owner":"Ellinghouse Publishing Co. Inc.","domain":"waynecojournalbanner.com","url":"https://www.waynecojournalbanner.com"},{"name":"Richmond Daily News","city":"Richmond","county":"Ray","media":"Print","owner":"Fackleman Newspapers","domain":"richmond-dailynews.com","url":"https://www.richmond-dailynews.com"},{"name":"Shelby County Herald","city":"Shelbyville","county":"Shelby","media":"Print","owner":"Williams Communications Group Inc.","domain":"shelbycountyherald.com","url":"https://www.shelbycountyherald.com"},{"name":"Sikeston Standard Democrat","city":"Sikeston","county":"Scott","media":"Print","owner":"American Publishing Co.","domain":"standard-democrat.com","url":"https://standard-democrat.com"},{"name":"South Missourian News","city":"Thayer","county":"Oregon","media":"Print","owner":"Rust Communications","domain":"southmissouriannews.com","url":"https://www.southmissouriannews.com"},{"name":"Southeast Missourian","city":"Cape Girardeau","county":"Cape Girardeau","media":"Print","owner":"Rust Communications","domain":"semissourian.com","url":"https://www.semissourian.com"},{"name":"Springfield News-Leader","city":"Springfield","county":"Greene","media":"Print","owner":"Gannett","domain":"news-leader.com","url":"https://www.news-leader.com"},{"name":"St. Louis American","city":"St. Louis","county":"St. Louis","media":"Print","owner":"Donald M. Suggs","domain":"stlamerican.com","url":"https://www.stlamerican.com"},{"name":"St. Louis Call Newspapers","city":"St. Louis","county":"St. Louis","media":"Print","owner":"Bill Milligan","domain":"callnewspapers.com","url":"https://callnewspapers.com"},{"name":"St. Louis Jewish Light","city":"St. Louis","county":"St. Louis","media":"Print","owner":"Jewish Federation of St. Louis","domain":"stljewishlight.org","url":"https://stljewishlight.org"},{"name":"St. Louis Post-Dispatch","city":"St. Louis","county":"St. Louis","media":"Print","owner":"Lee Enterprises (Lee/Bh Media?)","domain":"stltoday.com","url":"https://www.stltoday.com"},{"name":"St. Louis Review","city":"St. Louis","county":"St. Louis","media":"Print","owner":"Archdiocese of St. Louis","domain":"archstl.org","url":"https://www.archstl.org"},{"name":"St. Louis Riverfront Times","city":"St. Louis","county":"St. Louis","media":"Print","owner":"Euclid Media Group","domain":"riverfronttimes.com","url":"https://www.riverfronttimes.com"},{"name":"Ste. Genevieve Herald","city":"Sainte Genevieve","county":"Ste. Genevieve","media":"Print","owner":"Saint Genevieve Media LLC","domain":"stegenherald.com","url":"https://www.stegenherald.com"},{"name":"STL Public Radio","city":"St. Louis","county":"St. Louis","media":"Radio","owner":"University of Missouri-St. Louis","domain":"stlpr.org","url":"https://www.stlpr.org"},{"name":"Student Life","city":"St. Louis","county":"St. Louis","media":"Print","owner":"Washington University","domain":"studlife.com","url":"https://www.studlife.com"},{"name":"Sullivan Independent News","city":"Sullivan","county":"Franklin and Crawford","media":"Print","owner":"Manion Kathleen","domain":"mysullivannews.com","url":"https://www.mysullivannews.com"},{"name":"The Arrow","city":"Cape Girardeau","county":"Cape Girardeau","media":"Print","owner":"South East Missouri State University","domain":"southeastarrow.com","url":"https://www.southeastarrow.com"},{"name":"The Caldwell County News","city":"Hamilton","county":"Caldwell","media":"Print","owner":"L & L publications Inc.","domain":"mycaldwellcounty.com","url":"https://www.mycaldwellcounty.com"},{"name":"The Daily BURG","city":"Warrensburg","county":"Johnson","media":"Print","owner":"","domain":"digitalburg.com","url":"https://www.digitalburg.com"},{"name":"The Daily Star-Journal","city":"Warrensburg","county":"Johnson","media":"Print","owner":"Star-Journal Publishing Company","domain":"warrensburgstarjournal.com","url":"https://www.warrensburgstarjournal.com"},{"name":"The Dixon Pilot","city":"Dixon","county":"Pulaski","media":"Print","owner":"Blackburn Rick","domain":"dixonpilot.com","url":"https://www.dixonpilot.com"},{"name":"The Edina Sentinel","city":"Edina","county":"Knox","media":"Print","owner":"Sentinel Printing Company","domain":"edinasentinel.com","url":"https://www.edinasentinel.com"},{"name":"The Examiner / Examiner Weekend","city":"Independence","county":"Jackson","media":"Print","owner":"Gate House Media","domain":"examiner.net","url":"https://www.examiner.net"},{"name":"The Fulton Sun","city":"Fulton","county":"Callaway","media":"Print","owner":"WEHCO Media","domain":"fultonsun.com","url":"https://www.fultonsun.com"},{"name":"The Hermann Advertiser Courier","city":"Hermann","county":"Gasconade","media":"Print","owner":"Lakeway Publishers","domain":"hermannadvertisercourier.com","url":"https://www.hermannadvertisercourier.com"},{"name":"The Joplin Globe","city":"Joplin","county":"Jasper","media":"Print","owner":"CNHI","domain":"joplinglobe.com","url":"https://www.joplinglobe.com"},{"name":"The Journal/The Webster Journal","city":"Webster Groves","county":"St. Louis","media":"Print","owner":"Webster University","domain":"websterjournal.com","url":"https://websterjournal.com"},{"name":"The Kansas City Globe","city":"Kansas City","county":"Wyandotte","media":"Print","owner":"Jordon Communications","domain":"thekansascityglobe.com","url":"https://www.thekansascityglobe.com"},{"name":"The Kansas City Star","city":"Kansas City","county":"Wyandotte","media":"Print","owner":"McClathy","domain":"kansascity.com","url":"https://www.kansascity.com"},{"name":"The Landmark","city":"Platte City","county":"Platte","media":"Print","owner":"Foley Newspapers","domain":"plattecountylandmark.com","url":"https://plattecountylandmark.com"},{"name":"The Lebanon/LaClede Daily Record","city":"Lebanon","county":"Laclede","media":"Print","owner":"Lebanon Publishing Co","domain":"laclederecord.com","url":"https://www.laclederecord.com"},{"name":"The Licking News","city":"Licking","county":"Texas","media":"Print","owner":"Salem Publishing","domain":"thelickingnews.com","url":"https://www.thelickingnews.com"},{"name":"The Macon County Home Press","city":"La Plata","county":"Macon","media":"Print","owner":"Jeffcoat Becky","domain":"maconhomepress.com","url":"https://maconhomepress.com"},{"name":"The Marshall Democrat-News","city":"Marshall","county":"Saline","media":"Print","owner":"Rust Communications","domain":"marshallnews.com","url":"https://www.marshallnews.com"},{"name":"The Maryville Daily Forum","city":"Maryville","county":"Nodaway","media":"Print","owner":"Garner Media Holdings, LLE","domain":"maryvilleforum.com","url":"https://www.maryvilleforum.com"},{"name":"The Media","city":"Kahoka","county":"Clark","media":"Print","owner":"Sentinel Printing Company","domain":"kahokamedia.com","url":"https://www.kahokamedia.com"},{"name":"The Mexico Ledger","city":"Mexico","county":"Audrain","media":"Print","owner":"Westplex Media Group","domain":"mexicoledger.com","url":"https://mexicoledger.com"},{"name":"The Milan Standard","city":"Milan","county":"Sullivan","media":"Print","owner":"Wilson Robert","domain":"themilanstandard.com","url":"https://www.themilanstandard.com"},{"name":"The Missouri Independent","city":"Jefferson City","county":"","media":"Digital","owner":"","domain":"missouriindependent.com","url":"https://missouriindependent.com"},{"name":"The Missouri Times","city":"Jefferson City","county":"Cole","media":"Print","owner":"Scott Faughn","domain":"themissouritimes.com","url":"https://themissouritimes.com"},{"name":"The Monett Times","city":"Monett","county":"Lawrence","media":"Print","owner":"Rust Communications","domain":"monett-times.com","url":"https://www.monett-times.com"},{"name":"The Nevada Daily Mail","city":"Nevada","county":"Vernon","media":"Print","owner":"Rust Communications","domain":"nevadadailymail.com","url":"https://www.nevadadailymail.com"},{"name":"The Pathway","city":"Jefferson City","county":"Cole","media":"Print","owner":"Missouri Baptist Convention","domain":"mbcpathway.com","url":"https://mbcpathway.com"},{"name":"The Pitch/Kansas City Pitch","city":"Kansas City","county":"Wyandotte","media":"Print","owner":"Carey Media","domain":"thepitchkc.com","url":"https://www.thepitchkc.com"},{"name":"The Platte County Citizen","city":"Platte City","county":"Platte","media":"Print","owner":"Stubs Lee","domain":"plattecountycitizen.com","url":"https://www.plattecountycitizen.com"},{"name":"The Prospect News","city":"Doniphan","county":"Ripley","media":"Print","owner":"Rust Communications","domain":"theprospectnews.com","url":"https://www.theprospectnews.com"},{"name":"The Reporter","city":"Camdenton","county":"Camden","media":"Print","owner":"Reporter Publishing LLC/Dale Johnson","domain":"theccreporter.com","url":"https://www.theccreporter.com"},{"name":"The Sedalia Democrat","city":"Sedalia","county":"Pettis","media":"Print","owner":"Phillips Media Group","domain":"sedaliademocrat.com","url":"https://www.sedaliademocrat.com"},{"name":"The Standard","city":"Springfield","county":"Greene","media":"Print","owner":"Missouri State University","domain":"the-standard.org","url":"https://www.the-standard.org"},{"name":"The University News","city":"St. Louis","county":"St. Louis","media":"Print","owner":"University of St. Louis","domain":"unewsonline.com","url":"https://unewsonline.com"},{"name":"The Unterrified Democrat","city":"Linn","county":"Osage","media":"Print","owner":"Voss, Jerrilynn","domain":"unterrifieddemocrat.com","url":"https://www.unterrifieddemocrat.com"},{"name":"UMKC Roo News","city":"Kansas City","county":"Wyandotte","media":"Print","owner":"Sosland publishing company","domain":"kcroonews.com","url":"https://kcroonews.com"},{"name":"Vandalia Leader","city":"Vandalia","county":"Audrain","media":"Print","owner":"Lakeway Publishers","domain":"vandalialeader.com","url":"https://www.vandalialeader.com"},{"name":"Warren County Record","city":"Warrenton","county":"Warren","media":"Print","owner":"Missourian Publishing Co.","domain":"warrencountyrecord.com","url":"https://www.warrencountyrecord.com"},{"name":"Webster County Citizen","city":"Seymour","county":"Webster","media":"Print","owner":"Lebanon Publishing Co","domain":"webstercountycitizen.com","url":"https://www.webstercountycitizen.com"},{"name":"Webster Kirkwood News","city":"Webster Groves","county":"St. Louis","media":"Print","owner":"WK Times LLC","domain":"fayettenewspapers.com","url":"https://www.fayettenewspapers.com"},{"name":"West Plains Daily Quill","city":"West Plains","county":"Howell","media":"Print","owner":"Phillips Media Group, LLC","domain":"westplainsdailyquill.net","url":"https://www.westplainsdailyquill.net"},{"name":"Weston Chronicle","city":"Weston","county":"Platte","media":"Print","owner":"McPherson Beth","domain":"plattechronicle.com","url":"https://www.plattechronicle.com"},{"name":"What's Up Kansas City","city":"Kansas City","county":"Wyandotte","media":"Digital","owner":"","domain":"whatsupkansascity.net","url":"https://whatsupkansascity.net"}]</script>
+
+<script>
+const ROWS = JSON.parse(document.getElementById('seed').textContent);
+const PER = 25;
+const COLS = [
+  {key:'name',   label:'Outlet'},
+  {key:'city',   label:'City'},
+  {key:'county', label:'County'},
+  {key:'media',  label:'Media'},
+  {key:'owner',  label:'Owner'},
+];
+const FACETS = [
+  {id:'f-county', key:'county', all:'All counties'},
+  {id:'f-media',  key:'media',  all:'All media types'},
+  {id:'f-owner',  key:'owner',  all:'All owners'},
+];
+const state = {q:'', sort:'name', dir:1, page:1, f:{county:'', media:'', owner:''}};
+
+/* ---- build facet dropdowns from the data itself ---- */
+for (const f of FACETS) {
+  const sel = document.getElementById(f.id);
+  const vals = [...new Set(ROWS.map(r => r[f.key]).filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b));
+  sel.innerHTML = '<option value="">' + f.all + '</option>' +
+    vals.map(v => '<option>' + esc(v) + '</option>').join('');
+  sel.addEventListener('change', () => { state.f[f.key] = sel.value; state.page = 1; render(); });
+}
+
+/* ---- sortable header ---- */
+document.getElementById('hrow').innerHTML = COLS.map(c =>
+  '<th scope="col" data-key="' + c.key + '"><button type="button">' + c.label +
+  '<span class="arrow">&#9650;</span></button></th>').join('');
+document.getElementById('hrow').addEventListener('click', e => {
+  const th = e.target.closest('th'); if (!th) return;
+  const k = th.dataset.key;
+  state.dir = state.sort === k ? -state.dir : 1;
+  state.sort = k; state.page = 1; render();
+});
+
+document.getElementById('q').addEventListener('input', e => {
+  state.q = e.target.value.trim().toLowerCase(); state.page = 1; render();
+});
+document.getElementById('reset').addEventListener('click', () => {
+  state.q = ''; state.f = {county:'', media:'', owner:''}; state.page = 1;
+  document.getElementById('q').value = '';
+  FACETS.forEach(f => document.getElementById(f.id).value = '');
+  render();
+});
+document.getElementById('prev').addEventListener('click', () => { state.page--; render(); scrollTop(); });
+document.getElementById('next').addEventListener('click', () => { state.page++; render(); scrollTop(); });
+function scrollTop(){ document.getElementById('tbl').scrollIntoView({block:'start', behavior:'smooth'}); }
+
+/* ---- filtering + ranked search ---- */
+function score(r, terms) {
+  let s = 0;
+  const name = r.name.toLowerCase();
+  const hay = [r.name, r.city, r.county, r.owner, r.domain].join(' ').toLowerCase();
+  for (const t of terms) {
+    if (!hay.includes(t)) return -1;              // every term must match somewhere
+    if (name.startsWith(t)) s += 3;
+    else if (name.includes(t)) s += 2;
+    else s += 1;
+  }
+  return s;
+}
+function selected() {
+  const terms = state.q ? state.q.split(/\s+/) : [];
+  let out = ROWS.filter(r => FACETS.every(f => !state.f[f.key] || r[f.key] === state.f[f.key]));
+  if (terms.length) {
+    out = out.map(r => ({r, s:score(r, terms)})).filter(x => x.s >= 0)
+             .sort((a,b) => b.s - a.s).map(x => x.r);
+  }
+  const k = state.sort;
+  return out.sort((a,b) => String(a[k]).localeCompare(String(b[k]), undefined, {numeric:true}) * state.dir);
+}
+
+/* ---- render ---- */
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function render() {
+  const rows = selected();
+  const pages = Math.max(1, Math.ceil(rows.length / PER));
+  state.page = Math.min(state.page, pages);
+  const start = (state.page - 1) * PER;
+  const page = rows.slice(start, start + PER);
+
+  document.getElementById('count').innerHTML = rows.length === ROWS.length
+    ? '<strong>' + ROWS.length + '</strong> outlets'
+    : 'Showing <strong>' + rows.length + '</strong> of ' + ROWS.length + ' outlets';
+
+  document.getElementById('chips').innerHTML = FACETS
+    .filter(f => state.f[f.key])
+    .map(f => '<span class="chip">' + esc(state.f[f.key]) +
+              '<button type="button" data-key="' + f.key + '" data-id="' + f.id +
+              '" aria-label="Remove filter">&times;</button></span>').join('');
+
+  document.querySelectorAll('#hrow th').forEach(th => {
+    if (th.dataset.key === state.sort) th.setAttribute('aria-sort', state.dir === 1 ? 'ascending' : 'descending');
+    else th.removeAttribute('aria-sort');
+    const a = th.querySelector('.arrow');
+    if (a) a.innerHTML = state.dir === 1 ? '&#9650;' : '&#9660;';
+  });
+
+  document.getElementById('tbody').innerHTML = page.length ? page.map(r =>
+    '<tr>' +
+    '<td data-label="Outlet"><a href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a>' +
+      '<span class="domain">' + esc(r.domain) + '</span></td>' +
+    '<td data-label="City">'   + (r.city   ? esc(r.city)   : '&mdash;') + '</td>' +
+    '<td data-label="County">' + (r.county ? esc(r.county) : '&mdash;') + '</td>' +
+    '<td data-label="Media">'  + (r.media  ? '<span class="pill">' + esc(r.media) + '</span>' : '&mdash;') + '</td>' +
+    '<td data-label="Owner">'  + (r.owner  ? esc(r.owner)  : '<span class="unk">not recorded</span>') + '</td>' +
+    '</tr>').join('')
+    : '<tr><td class="empty" colspan="5">No outlets match those filters. <a href="#" id="clear">Clear them</a> and start again.</td></tr>';
+
+  document.getElementById('range').textContent = rows.length
+    ? (start + 1) + '\u2013' + Math.min(start + PER, rows.length) + ' of ' + rows.length
+    : '';
+  document.getElementById('prev').disabled = state.page <= 1;
+  document.getElementById('next').disabled = state.page >= pages;
+}
+
+document.getElementById('chips').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.f[b.dataset.key] = '';
+  document.getElementById(b.dataset.id).value = '';
+  state.page = 1; render();
+});
+document.getElementById('tbody').addEventListener('click', e => {
+  if (e.target.id === 'clear') { e.preventDefault(); document.getElementById('reset').click(); }
+});
+
+/* ---- CSV export of the *filtered* set ---- */
+function toCSV(rows) {
+  const cell = v => /[",\n]/.test(v ?? '') ? '"' + String(v).replace(/"/g, '""') + '"' : (v ?? '');
+  const cols = ['name', 'domain', 'city', 'county', 'media', 'owner', 'url'];
+  return [cols.join(',')].concat(rows.map(r => cols.map(k => cell(r[k])).join(','))).join('\n');
+}
+const dlg = document.getElementById('dlg');
+document.getElementById('export').addEventListener('click', () => {
+  const rows = selected();
+  document.getElementById('dlg-n').textContent = rows.length + (rows.length === 1 ? ' outlet' : ' outlets');
+  document.getElementById('csv').value = toCSV(rows);
+  dlg.showModal();
+});
+document.getElementById('dlg-close').addEventListener('click', () => dlg.close());
+document.getElementById('dlg-copy').addEventListener('click', async () => {
+  const ta = document.getElementById('csv');
+  const btn = document.getElementById('dlg-copy');
+  try { await navigator.clipboard.writeText(ta.value); }
+  catch { ta.select(); document.execCommand('copy'); }
+  btn.textContent = 'Copied';
+  setTimeout(() => { btn.textContent = 'Copy to clipboard'; }, 1600);
+});
+
+render();
+</script>
