@@ -72,6 +72,57 @@ jobs:
           name: data-quality-report
           path: report.txt
 
+  feed:
+    name: Public feed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci || npm install
+      - name: Build the feed from the fixture
+        run: |
+          python -m feed tests/fixtures/outlets_sample.csv \
+            --coverage tests/fixtures/coverage_sample.csv \
+            --out dist/feed --generated-at 2026-01-01T00:00:00Z --allow-errors
+          cat dist/feed/manifest.json
+      - name: Feed carries no admin columns
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          sys.path.insert(0, ".")
+          from checks.rules import PUBLIC_FIELDS
+          m = json.loads(pathlib.Path("dist/feed/manifest.json").read_text())
+          rows = json.loads((pathlib.Path("dist/feed") / m["files"]["sites"]["path"]).read_text())
+          extra = sorted({k for r in rows for k in r} - PUBLIC_FIELDS)
+          if extra:
+              print(f"::error::feed carries non-public columns: {extra}")
+              raise SystemExit(1)
+          print(f"{len(rows)} rows, fields all allowlisted")
+          PY
+      - name: Search index builds against the same feed
+        run: node tools/build-search-index.mjs dist/feed
+      - name: Feed build is reproducible
+        run: |
+          cp dist/feed/manifest.json /tmp/first.json
+          rm -rf dist
+          python -m feed tests/fixtures/outlets_sample.csv \
+            --coverage tests/fixtures/coverage_sample.csv \
+            --out dist/feed --generated-at 2026-01-01T00:00:00Z --allow-errors
+          python - <<'PY'
+          import json, pathlib
+          a = json.loads(pathlib.Path("/tmp/first.json").read_text())
+          b = json.loads(pathlib.Path("dist/feed/manifest.json").read_text())
+          if a["files"]["sites"]["sha256"] != b["files"]["sites"]["sha256"]:
+              print("::error::feed build is not reproducible")
+              raise SystemExit(1)
+          print("reproducible:", b["files"]["sites"]["sha256"][:12])
+          PY
+
   pages:
     name: Pages payload
     runs-on: ubuntu-latest

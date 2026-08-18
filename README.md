@@ -26,16 +26,65 @@ Workspace group --IAP--> Django admin (Cloud Run) --> Cloud SQL   [web project]
 
 | Layer | Choice | Why |
 |---|---|---|
-| Database | Postgres 16 on Cloud SQL, smallest tier | Replaces the committed SQLite file |
-| Admin | Django 5.x + `django.contrib.admin` | Inlines make the merge review tractable — see below |
+| Database | Postgres 16, Cloud SQL Enterprise, smallest **dedicated** core | Shared-core has no SLA; see [Sizing](#database-sizing) |
+| Admin | Django 5.x + Gunicorn on Cloud Run | Inlines make the merge review tractable — see below |
 | Bulk edit | `django-import-export` | Reads the source `.xlsx`/`.csv` with a dry-run diff before commit |
 | Audit | `django-simple-history` | Per-field history and revert, essential during remediation |
-| ETL | pandas, inside management commands | Keeps what `build_demo.py` did well, out of the request path |
+| ETL | management commands run as **Cloud Run Jobs** | Same image, different entrypoint; no request timeout |
 | Auth | IAP restricted to a Google Workspace group | Editors need no GCP IAM beyond `iap.httpsResourceAccessor` |
 | Public widget | Vite + **Preact** + MiniSearch | ~30KB bundle; React would outweigh the data |
 | Hosting | Cloud Run (admin), GCS (widget) | Scale-to-zero admin, static public side |
 
 Running cost: **~$15/month**. See [Cost](#cost).
+
+### Database sizing
+
+`db-f1-micro` and `db-g1-small` are shared-core and carry **no Cloud SQL SLA**;
+their CPU is burstable and can be throttled, which shows up as an admin page that
+occasionally stalls. They are a testing tier.
+
+The smallest dedicated core (`db-custom-1-3840`, 1 vCPU / 3.75GB) is roughly
+$50/month against ~$11, and gets the 99.95% single-zone SLA.
+
+Capacity is not the reason to choose it. 2,103 outlets and 8,561 coverage records
+is a rounding error for Postgres — at a hundred times this size the database still
+would not be the constraint, and the real ceiling is concurrent admin users, which
+is under ten. Choose dedicated core for the SLA and predictable latency, not for
+headroom. Nothing in the architecture changes either way.
+
+### App server
+
+Gunicorn, WSGI, with the Cloud Run shape:
+
+```
+gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 config.wsgi:application
+```
+
+One worker because Cloud Run bills per instance and handles concurrency itself;
+threads because admin requests are I/O-bound on the database; `--timeout 0`
+because Cloud Run enforces its own request deadline and a second one only
+produces confusing 502s. Serve static files with WhiteNoise — without it the
+Django admin loads unstyled on Cloud Run.
+
+### ETL as Cloud Run Jobs
+
+Yes. The three management commands run as Cloud Run Jobs built from the same
+image as the service, with a different entrypoint:
+
+| Job | Trigger |
+|---|---|
+| `migrate` | on deploy, before traffic shifts |
+| `import_source <gcs-uri>` | manual, or Cloud Scheduler |
+| `rebuild_outlets` | manual, after an import |
+| `publish` | on save, or scheduled |
+
+Jobs are the right shape because they run to completion with no request timeout,
+and can be given more memory than the service — pandas reading a spreadsheet
+wants 1–2GB while the web service is comfortable at 512MB.
+
+One split worth keeping: interactive spreadsheet uploads go through
+`django-import-export` in the admin, because the editor needs the dry-run diff in
+front of them. Jobs handle the batch and scheduled paths.
 
 ### Why Django when the crawler is FastAPI
 
@@ -148,15 +197,59 @@ keyword search, all three multi-select filters, outlet cards, the coverage table
 and the data explorer, with CSV export of whatever is on screen. Card/table
 toggle, sortable columns, filter chips and pagination are additions.
 
+## Public data feed
+
+`python -m feed` writes a content-addressed static feed:
+
+```
+feed/manifest.json                 small, short cache TTL, always revalidated
+feed/sites.<sha8>.json             immutable, cache for a year
+feed/search-index.<sha8>.json      immutable — optional, see below
+```
+
+Content hashing is what makes this work on a bare bucket with no CDN: the
+manifest is the only file that ever needs revalidating, everything it points at
+is immutable. A publish writes new hashed files and swaps the manifest, so a
+reader never sees a half-updated feed.
+
+The build is **deterministic** — sorted keys, sorted rows, hash independent of
+build time — so an unchanged dataset produces an unchanged hash and no pointless
+redeploy. Projection onto `PUBLIC_FIELDS` happens in one place, and the publish
+**refuses to write** when any rule errors unless `--allow-errors` is passed
+explicitly.
+
+```bash
+python -m feed outlets.csv --coverage coverage.csv --out dist/feed
+npm run build:index          # optional, see below
+```
+
+### The prebuilt MiniSearch index is not worth shipping
+
+It is implemented (`tools/build-search-index.mjs`, in Node so the serialised form
+always matches the library version the widget loads) but **off by default**,
+because the measurement does not support it:
+
+| | Gzipped | Time |
+|---|---|---|
+| `sites.json` alone, index built in browser | **73KB** | 16ms to index 2,103 docs |
+| plus prebuilt `search-index.json` | 205KB | 12ms to load |
+
+Shipping the index costs **132KB gzipped to save 4ms**. Build it in the browser.
+
+Revisit if the registry grows by an order of magnitude, or if indexing time
+becomes visible on low-end phones — at which point the generator is already here
+and the decision is a flag, not a rewrite.
+
 ## CI and data quality
 
-`.github/workflows/ci.yml` runs four jobs on every push and pull request.
+`.github/workflows/ci.yml` runs five jobs on every push and pull request.
 
 | Job | Checks |
 |---|---|
 | Lint | `ruff check` and `ruff format --check` |
 | Tests | 60 tests over the rules and the mockup |
 | Data quality | the rules against a fixture of real prototype data |
+| Public feed | feed builds, carries no admin columns, is reproducible |
 | Pages payload | the mockup stays servable, internal doc links resolve |
 
 ### One rule set, two callers
@@ -235,7 +328,8 @@ Two things that are easy to get wrong and are not optional:
 
 Nothing is built yet.
 
-- [x] CI: lint, tests, data-quality rules
+- [x] CI: lint, tests, data-quality rules, feed build
+- [x] Public static feed generator
 - [ ] Schema review — [`schema/models_draft.py`](schema/models_draft.py)
 - [ ] Django project, admin, import/export and history wired up
 - [ ] `import_source`, `rebuild_outlets`, `publish` management commands

@@ -1,0 +1,11 @@
+{
+  "name": "news-source-directory",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:index": "node tools/build-search-index.mjs dist/feed"
+  },
+  "dependencies": {
+    "minisearch": "^7.1.2"
+  }
+}
