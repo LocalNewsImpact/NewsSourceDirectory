@@ -18,6 +18,26 @@ creates, so rerunning is safe and reading it tells you what exists.
 Uses the image the service is currently running, so there is no risk of
 executing code that is not deployed.
 
+## Images
+
+Two, so that changing a template does not reinstall 319MB of libraries.
+
+| | Rebuilt when | Size |
+|---|---|---|
+| `sources-admin-base:<hash>` | `requirements.txt` changes | 394MB |
+| `sources-admin:<sha>` | every deploy | +4MB |
+
+The base is tagged with a hash of `requirements.txt`, so "have the dependencies
+changed?" is a registry lookup rather than a guess. An application-only deploy
+pushes about 4MB.
+
+It was 757MB in one image. Most of the difference is not libraries: the old
+Dockerfile installed `build-essential` in one layer and purged it in a later
+one, and Docker layers are additive — the bytes stayed. The base is now
+multi-stage and only the finished `site-packages` crosses into the runtime.
+`boto3` also went, 30MB for a library nothing imports since the feed publishes
+to Pages rather than S3.
+
 ## What exists
 
 | | |

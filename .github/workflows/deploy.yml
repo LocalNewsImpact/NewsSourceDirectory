@@ -64,12 +64,31 @@ jobs:
           gcloud auth list --filter=status:ACTIVE --format='value(account)'
           echo "project: ${PROJECT_ID}"
 
+      # The dependency image is rebuilt only when requirements.txt changes.
+      # Tagging it with a hash of that file makes "has anything changed?" a
+      # registry lookup rather than a guess, and an application-only deploy then
+      # pushes about 4MB instead of reinstalling 319MB of libraries.
+      - name: Dependency image
+        id: base
+        run: |
+          HASH="$(sha256sum requirements.txt | cut -c1-12)"
+          BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}-base:${HASH}"
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+          if gcloud artifacts docker images describe "$BASE" >/dev/null 2>&1; then
+            echo "reusing $HASH — dependencies unchanged"
+          else
+            echo "building $HASH — requirements.txt changed"
+            docker build -f Dockerfile.base -t "$BASE" .
+            docker push "$BASE"
+          fi
+
       - name: Build and push the image
         if: steps.app.outputs.ready == 'true'
         run: |
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}:${GITHUB_SHA::7}"
-          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-          docker build -t "$IMAGE" .
+          docker build --build-arg "BASE_IMAGE=$BASE" -t "$IMAGE" .
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 

@@ -20,5 +20,5 @@ django-allauth[socialaccount]>=65.3
 pandas>=2.2
 openpyxl>=3.1                  # .xlsx sources
 
-# Publishing.
-boto3>=1.35                    # feed to S3
+# No boto3: the feed publishes to GitHub Pages, committed by a workflow, not to
+# S3. It was 30MB of a library nothing imports.
