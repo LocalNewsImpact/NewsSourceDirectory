@@ -15,8 +15,8 @@
       </form>
     {% endfor %}
   {% else %}
-    {# No OAuth client configured — the ordinary form is the way in. #}
-    <form class="login" method="post" action="{% url 'account_login' %}">
+    {# No OAuth client configured, so the password form is the only way in. #}
+    <form class="plain" method="post" action="{% url 'account_login' %}">
       {% csrf_token %}
       {{ form.as_p }}
       {% if redirect_field_value %}
@@ -24,11 +24,11 @@
       {% endif %}
       <button type="submit">Sign in</button>
     </form>
-    <p class="note">Google sign-in is not configured, so this is the password form.</p>
+    <p class="note">Google sign-in is not configured here, so this is the password form.</p>
   {% endif %}
 
   <p class="note">
-    Accounts are restricted to <strong>{{ allowed_domain }}</strong> addresses.
-    If you need access, ask an administrator to add you.
+    Access is limited to <strong>{{ allowed_domain }}</strong> accounts.
+    If you need it, ask an administrator to add you.
   </p>
 {% endblock %}

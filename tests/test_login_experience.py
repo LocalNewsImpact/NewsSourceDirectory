@@ -92,3 +92,22 @@ class TestSignInPage:
         response = client.get("/accounts/login/")
         assert b"News Source Directory" in response.content
         assert b"<style>" in response.content
+
+    def test_it_uses_the_site_typefaces(self, client):
+        """Matching localnewsimpact.org, so the admin reads as part of the same
+        site rather than a Django install that happens to share the domain."""
+        content = client.get("/accounts/login/").content
+        assert b"Montserrat" in content
+        assert b"Lato" in content
+
+    def test_there_is_no_invitation_to_sign_up(self, client):
+        """allauth's default offers self-service signup. Accounts here are
+        created by an administrator, so that link leads nowhere useful."""
+        content = client.get("/accounts/login/").content.lower()
+        assert b"sign up" not in content
+
+    def test_the_signup_url_explains_itself(self, client):
+        """allauth links to it from its own pages, so it must say why rather
+        than presenting a form that cannot work."""
+        response = client.get("/accounts/signup/")
+        assert b"created by an administrator" in response.content

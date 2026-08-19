@@ -26,6 +26,9 @@ COPY config/ ./config/
 COPY directory/ ./directory/
 COPY checks/ ./checks/
 COPY feed/ ./feed/
+# Without this the sign-in page falls back to allauth's unstyled default — and
+# offers a Sign Up link, which this application does not have.
+COPY templates/ ./templates/
 
 # Static files are baked in and served by WhiteNoise; without this the admin
 # renders unstyled on Cloud Run. A placeholder key is enough to import settings.
