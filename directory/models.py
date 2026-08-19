@@ -416,6 +416,41 @@ class CoverageRecord(models.Model):
         return f"{self.outlet_name_raw} ({self.source_file})"
 
 
+class DataQualityIssue(models.Model):
+    """One rule violation, recorded so cleaning can be driven from the admin.
+
+    The rules in checks/rules.py already gate publishing. Storing what they find
+    turns "289 errors" from a number in a workflow log into a list someone can
+    open, filter and work through.
+
+    Rewritten wholesale on each run rather than updated in place: a violation
+    that no longer occurs should disappear, and reconciling that incrementally
+    is more code than deleting and reinserting a few hundred rows.
+    """
+
+    class Severity(models.TextChoices):
+        ERROR = "error", "Error — blocks publishing"
+        WARN = "warn", "Warning"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    rule = models.CharField(max_length=64, db_index=True)
+    severity = models.CharField(max_length=8, choices=Severity.choices, db_index=True)
+    message = models.TextField()
+    outlet = models.ForeignKey(
+        "Outlet", null=True, blank=True, on_delete=models.CASCADE, related_name="issues"
+    )
+    row_id = models.CharField(max_length=64, blank=True)
+    detected_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("severity", "rule")
+        indexes = [models.Index(fields=["severity", "rule"])]
+        verbose_name = "data quality issue"
+
+    def __str__(self):
+        return f"{self.rule}: {self.message[:60]}"
+
+
 class Collection(models.Model):
     """A named subset of the registry, and the unit handed to the crawler: the
     slug becomes a crawler dataset slug and each Outlet id lands in

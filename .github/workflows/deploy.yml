@@ -104,7 +104,7 @@ jobs:
           gcloud run jobs deploy "${SERVICE}-release" \
             --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" \
             --command /bin/sh \
-            --args "^|^-c|python manage.py migrate --noinput && python manage.py configure_site --domain $ADMIN_HOST" \
+            --args "^|^-c|python manage.py migrate --noinput && python manage.py configure_site --domain $ADMIN_HOST && python manage.py check_data" \
             --set-secrets DJANGO_SECRET_KEY=django-secret-key:latest,DB_PASSWORD=db-password:latest \
             --set-env-vars "CLOUD_SQL_CONNECTION_NAME=$SQL_INSTANCE,DB_NAME=directory,DB_USER=directory" \
             --set-cloudsql-instances $SQL_INSTANCE \
