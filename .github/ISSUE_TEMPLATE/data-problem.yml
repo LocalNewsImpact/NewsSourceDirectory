@@ -1,0 +1,44 @@
+name: Data problem
+description: An outlet, place or coverage record is wrong in the registry
+labels: [data]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For data that is wrong, not software that is broken. If you found this
+        while reviewing, note it on the outlet as well so the next person sees
+        it in context.
+  - type: input
+    id: outlet
+    attributes:
+      label: Which outlet
+      description: Name, or the admin URL
+      placeholder: https://sources.localnewsimpact.org/admin/directory/outlet/…
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem
+      options:
+        - Several outlets merged into one row
+        - One outlet split across several rows
+        - Wrong name
+        - Wrong place, city or county
+        - Wrong medium, owner or status
+        - Wrong or dead website
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: What is wrong, and what is right
+      description: What the registry says, what it should say, and how you know.
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source study, if known
+      description: The source_file on the coverage rows underneath

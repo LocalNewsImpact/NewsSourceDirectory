@@ -2,7 +2,7 @@
 #
 # Run a Django management command against production.
 #
-#   ./infra/manage.sh ensure_admin matt@localnewsimpact.org someone@localnewsimpact.org
+#   ./infra/manage.sh ensure_admin treasurer@localnewsimpact.org someone@localnewsimpact.org
 #   ./infra/manage.sh seed_places --url --link
 #   ./infra/manage.sh rebuild_outlets
 #
