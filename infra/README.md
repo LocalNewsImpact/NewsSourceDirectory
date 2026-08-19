@@ -93,6 +93,49 @@ Route 53 holds `localnewsimpact.org`, with a `*` A record on the WordPress host
 (50.16.132.48). A record for an exact name beats the wildcard, so no wildcard
 change is needed for either the admin hostname or the feed.
 
+## Database isolation
+
+The directory shares the crawler's instance but must not be able to reach its
+database. Two defaults stood in the way, and both are now closed by
+`infra/sql/isolate_directory_role.sql`:
+
+1. **Postgres grants `CONNECT` on every database to `PUBLIC`.** The `directory`
+   role could open `mizzou`. Verified by connecting, not assumed.
+2. **Cloud SQL adds every API-created user to `cloudsqlsuperuser`.** This was the
+   larger hole. Membership confers rights across the instance, so revoking
+   `CONNECT` alone would have been theatre — a member can `SET ROLE` and undo it.
+
+State after applying:
+
+```
+mizzou     =T/cloudsqlsuperuser            PUBLIC: TEMP only, no CONNECT
+           mizzou_user=c, datastream_user=c
+directory  =T/directory                    PUBLIC: TEMP only, no CONNECT
+           directory=CTc                   owns its own database
+```
+
+`directory` holds no role memberships at all. Verified in both directions:
+
+| From | To | Result |
+|---|---|---|
+| `directory` | `mizzou` | `FATAL: permission denied for database "mizzou"` |
+| `directory` | `directory` | connects, owns it, migrations can create tables |
+| `mizzou_user` | `mizzou` | unaffected — 48 tables, 1,149 source rows |
+
+The directory role owns its own database, which is what lets it lose superuser
+rights without losing the ability to migrate.
+
+To rerun:
+
+```bash
+./infra/sql/apply.sh infra/sql/isolate_directory_role.sql
+```
+
+The script is in two halves because ownership moves partway through: after that,
+the crawler's role can no longer alter the directory database, and attempting it
+produces a *warning* rather than an error — which is easy to miss. `apply.sh`
+runs the second half as the `directory` role.
+
 ## Open decision: the feed bucket cannot be public
 
 The org enforces `constraints/iam.allowedPolicyMemberDomains`, restricted to
