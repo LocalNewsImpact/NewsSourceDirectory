@@ -11,7 +11,7 @@ admin.site.site_title = "News Source Directory"
 admin.site.index_title = "Registry"
 
 urlpatterns = [
-    path("healthz", healthz, name="healthz"),
+    path("_health", healthz, name="healthz"),
     path("accounts/", include("allauth.urls")),
     path("admin/", admin.site.urls),
     # The admin is the whole of this front end, so the root goes there rather

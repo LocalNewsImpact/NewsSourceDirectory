@@ -5,6 +5,10 @@ from django.http import JsonResponse
 def healthz(request):
     """Liveness plus a database round trip.
 
+    Served at /_health, not /healthz. Google's front end intercepts the exact
+    path /healthz on Cloud Run and answers 404 itself — the request never
+    reaches the container, and nothing in the logs explains why.
+
     The deploy smoke test hits this, so it must fail when the database is
     unreachable — a service that answers 200 while unable to read anything is
     worse than one that admits it is down.
