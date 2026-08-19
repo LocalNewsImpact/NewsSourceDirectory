@@ -22,7 +22,7 @@ creates, so rerunning is safe and reading it tells you what exists.
 | Deploy SA | `github-deploy@` — Run developer, registry writer, SA user |
 | Secrets | `django-secret-key`, `db-password` |
 | Database | `directory` on `mizzou-news-crawler:us-central1:mizzou-db-prod` |
-| Admin hostname | `directory.localnewsimpact.org` via Cloud Run domain mapping |
+| Admin hostname | `sources.localnewsimpact.org` via Cloud Run domain mapping |
 
 Not yet created: the Cloud Run service, its domain mapping, IAP.
 
@@ -41,7 +41,7 @@ Isolation is therefore database-and-user level rather than instance level. Worth
 being clear-eyed about the one gap that leaves, below.
 
 **No load balancer.** A Cloud Run domain mapping puts the admin on
-`directory.localnewsimpact.org` for free. The load balancer path is ~$18/month
+`sources.localnewsimpact.org` for free. The load balancer path is ~$18/month
 and is kept in the script only as a fallback.
 
 Together: **~$70/month becomes ~$2–5/month.**
@@ -66,7 +66,7 @@ with the crawler owners rather than unilaterally.
 Cloud Run domain mappings are supported in us-central1. The route is:
 
 ```
-directory.localnewsimpact.org  ->  A/CNAME in Route 53  ->  Cloud Run
+sources.localnewsimpact.org  ->  A/CNAME in Route 53  ->  Cloud Run
 ```
 
 `gcloud run domain-mappings create` prints the exact records once the service

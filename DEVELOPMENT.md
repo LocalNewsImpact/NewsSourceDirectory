@@ -63,7 +63,7 @@ Open questions worth settling before code depends on them:
 7. Secrets: database password, Django `SECRET_KEY`.
 8. A `lnic-directory-editors@localnewsimpact.org` group for IAP, with
    `matt@localnewsimpact.org` in it.
-9. Reserve the global address for `directory.localnewsimpact.org` and create the
+9. Reserve the global address for `sources.localnewsimpact.org` and create the
    Route 53 A record, so the managed certificate can issue later.
 
 Infrastructure is a scripted, idempotent `infra/bootstrap.sh` rather than

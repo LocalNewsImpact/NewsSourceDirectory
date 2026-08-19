@@ -54,14 +54,14 @@ headroom. Nothing in the architecture changes either way.
 
 ### Admin hostname
 
-The admin is served at **`directory.localnewsimpact.org`**, not a `run.app` URL.
+The admin is served at **`sources.localnewsimpact.org`**, not a `run.app` URL.
 
 That requires a global external Application Load Balancer in front of Cloud Run:
 IAP on a bare Cloud Run service only protects the `run.app` hostname, and Cloud
 Run domain mappings do not carry IAP. So the admin path is
 
 ```
-directory.localnewsimpact.org
+sources.localnewsimpact.org
   -> A record (Route 53)      overrides the *.localnewsimpact.org wildcard
   -> global external ALB      Google-managed certificate, IAP on the backend
   -> serverless NEG

@@ -43,9 +43,9 @@ WEB_ORIGIN="${WEB_ORIGIN:-https://www.localnewsimpact.org}"
 
 # Hostname for the Django admin. DNS is Route 53; a record for this exact name
 # overrides the existing *.localnewsimpact.org wildcard.
-ADMIN_HOST="${ADMIN_HOST:-directory.localnewsimpact.org}"
-LB_IP_NAME="${LB_IP_NAME:-directory-admin-ip}"
-SERVICE="${SERVICE:-directory-admin}"
+ADMIN_HOST="${ADMIN_HOST:-sources.localnewsimpact.org}"
+LB_IP_NAME="${LB_IP_NAME:-sources-admin-ip}"
+SERVICE="${SERVICE:-sources-admin}"
 
 RUN_SA="directory-run@${PROJECT_ID}.iam.gserviceaccount.com"
 DEPLOY_SA="github-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -279,7 +279,7 @@ stage_sql() {
 # ---------------------------------------------------------------------------
 # FALLBACK ONLY — not part of the default run.
 #
-# The admin is intended to reach directory.localnewsimpact.org through a Cloud
+# The admin is intended to reach sources.localnewsimpact.org through a Cloud
 # Run domain mapping, which is free. These stages build a load balancer instead,
 # at ~$18/month, and exist for the case where IAP turns out not to cover a
 # domain-mapped hostname and we want IAP rather than in-app Google auth.
@@ -302,7 +302,7 @@ stage_lb_ip() {
 
 # Everything from here needs the Cloud Run service to exist, so run this after
 # the first deploy. A custom hostname with IAP requires a load balancer: IAP on
-# the bare Cloud Run URL cannot serve directory.localnewsimpact.org.
+# the bare Cloud Run URL cannot serve sources.localnewsimpact.org.
 stage_lb() {
   say "load balancer for ${ADMIN_HOST}"
   if ! have run services describe "$SERVICE" --region="$REGION" --project="$PROJECT_ID"; then
