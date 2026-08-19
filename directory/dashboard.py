@@ -13,7 +13,14 @@ from urllib.parse import urlencode
 
 from django.db.models import Count, Q
 
-from directory.models import CoverageRecord, DataQualityIssue, Outlet, OutletPlace, Place
+from directory.models import (
+    CoverageRecord,
+    DataQualityIssue,
+    Outlet,
+    OutletPlace,
+    Place,
+    State,
+)
 
 
 @dataclass(frozen=True)
@@ -110,13 +117,24 @@ def unserved_places(state_code: str = "NJ") -> Tile:
     report every unincorporated hamlet as unserved, which in New Jersey turns 31
     into 2,467 and means nothing.
     """
-    qs = Place.objects.filter(state__code=state_code, feature_class="Civil")
+    state = State.objects.filter(code=state_code).first()
+    if state is None:
+        return Tile(f"{state_code} municipalities with no outlet", 0, "/admin/directory/place/")
+
+    qs = Place.objects.filter(state=state, feature_class="Civil")
     total = qs.count()
     served = qs.annotate(n=Count("outlets", distinct=True)).filter(n__gt=0).count()
+
+    # state__id__exact, not state__code__exact: the admin only permits lookups
+    # registered in list_filter, and rejects anything else with a 400.
+    url = (
+        "/admin/directory/place/"
+        f"?served=none&feature_class__exact=Civil&state__id__exact={state.pk}"
+    )
     return Tile(
         f"{state_code} municipalities with no outlet",
         total - served,
-        f"/admin/directory/place/?state__code__exact={state_code}",
+        url,
         f"of {total} civil divisions",
         "warn" if total - served else "",
     )
