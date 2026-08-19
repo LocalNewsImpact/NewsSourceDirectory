@@ -239,3 +239,60 @@ they are in the database. Name-matched links default to `needs_review`.
 - **Researcher portal** — held. Nothing in the schema forecloses it.
 - **Succession** — see above.
 - **Feed destination** — settled: an S3 bucket, on its own subdomain.
+
+---
+
+## 10. What GNIS actually contains
+
+Checked against the real 37MB national file rather than assumed, after an
+earlier version of `seed_places` was written against invented column names and
+its tests validated the invention.
+
+**The file.** 981,698 rows, of which 256,114 are `Populated Place` or `Civil`.
+The header is lowercase and carries a BOM. There is **no state abbreviation
+column** — state arrives as `state_name` plus `state_numeric`, the FIPS code.
+
+**`Civil` cannot be filtered out.** It means different things by state: New
+Jersey municipalities are Civil features, while in Missouri the same class is
+largely land surveys and planning regions. Of the 511 GNIS ids in the coverage
+data that resolve at all, **506 are Civil**. Dropping the class would break every
+real link we have, so `feature_class` is stored on the row rather than collapsed.
+
+### Identity joins to attributes
+
+GNIS carries no Census GEOID, but the Census Gazetteer keys on `ANSICODE`, which
+**is** the GNIS feature id — so the join is exact rather than a name match.
+Tested against the real coverage ids:
+
+| Route | Joined |
+|---|---|
+| Census places file | 290 |
+| Census county subdivisions file | 505 |
+| **Either** | **505 of 561 — 90%** |
+
+Two files are needed: New Jersey is mostly townships, which are county
+subdivisions rather than places. `Place.census_geoid` exists to hold the result
+whenever attributes are wanted; nothing populates it yet.
+
+The remaining 10% are faults in the source: 50 ids absent from GNIS entirely,
+and 5 naming a reservoir, two summits, a spring and a stream.
+
+### Reading the coverage figures
+
+Seeding the national file gives 256,114 places, and linking the coverage data
+gives 4,341 exact GNIS links and 2,891 name matches. The tempting headline from
+that — *2,467 New Jersey places have no outlet* — is wrong by roughly eighty
+times, and the reason is the feature class:
+
+| New Jersey | Total | Served | None |
+|---|---|---|---|
+| `Civil` — municipalities | 574 | 543 | **31** |
+| `Populated Place` — hamlets, neighbourhoods | 2,436 | 0 | 2,436 |
+
+The 2,436 could never link: the New Jersey study recorded coverage at
+municipality level, so unincorporated hamlets have no coverage record by
+construction, not by absence of news. **31 of 574 municipalities** is the figure
+that means something.
+
+Any question of the form "how many places have no outlet" has to name a feature
+class, or it is measuring the gazetteer rather than the news ecosystem.
