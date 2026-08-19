@@ -1,14 +1,15 @@
-"""Grant a person admin access, idempotently.
+"""Grant people admin access, idempotently.
 
     python manage.py ensure_admin matt@localnewsimpact.org
+    python manage.py ensure_admin a@... b@... c@localnewsimpact.org
+    python manage.py ensure_admin --staff-only editor@localnewsimpact.org
 
-Run as a Cloud Run job against production, or locally against the dev database.
-Rerunning is safe: an existing account is granted the flags it lacks and nothing
-else about it changes.
+Accounts can be created before anyone signs in: SOCIALACCOUNT_EMAIL_AUTHENTICATION
+lets a Google identity attach to a matching address on first login. So adding an
+editor is one command, not a sign-in-then-promote dance.
 
-Sign-in goes through Google once an OAuth client is configured, at which point
-the account here is what the Google identity attaches to. Until then, pass
---set-password to give it a password so someone can actually get in.
+Rerunning is safe. An existing account is granted the flags it lacks and nothing
+else about it changes — a rerun never demotes anyone or resets a password.
 """
 
 from __future__ import annotations
@@ -18,61 +19,70 @@ import secrets
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 
 class Command(BaseCommand):
-    help = "Create or promote an admin account by email address."
+    help = "Create or promote admin accounts by email address."
 
     def add_arguments(self, parser):
-        parser.add_argument("email")
+        parser.add_argument("emails", nargs="+", help="one or more addresses")
         parser.add_argument(
-            "--staff-only",
-            action="store_true",
-            help="admin access without superuser rights",
+            "--staff-only", action="store_true", help="admin access without superuser rights"
         )
         parser.add_argument(
             "--set-password",
             action="store_true",
-            help="generate a password and print it once (for use before Google sign-in exists)",
+            help="generate a password and print it once, for use without Google sign-in",
         )
 
     def handle(self, *args, **options):
-        email = options["email"].strip().lower()
         domain = getattr(settings, "ALLOWED_GOOGLE_DOMAIN", "")
-        if domain and not email.endswith(f"@{domain}"):
+        emails = [e.strip().lower() for e in options["emails"] if e.strip()]
+
+        outside = [e for e in emails if domain and not e.endswith(f"@{domain}")]
+        if outside:
+            # Refused as a set rather than one at a time: a half-applied batch is
+            # worse than none, because nobody can tell which half.
             raise CommandError(
-                f"{email} is outside {domain}. Google sign-in would refuse it, so an "
-                "account here would be unusable."
+                f"outside {domain}: {', '.join(outside)}. Google sign-in would refuse "
+                "these, so the accounts would be unusable."
             )
 
         User = get_user_model()
-        user, created = User.objects.get_or_create(username=email, defaults={"email": email})
+        results = []
 
-        user.email = email
-        user.is_staff = True
-        user.is_superuser = not options["staff_only"]
+        with transaction.atomic():
+            for email in emails:
+                user = User.objects.filter(email__iexact=email).first()
+                created = user is None
+                if created:
+                    user = User(username=email, email=email)
 
-        password = None
-        if options["set_password"] or created:
-            if options["set_password"]:
-                password = secrets.token_urlsafe(16)
-                user.set_password(password)
-            elif created:
-                # Created without a password: the account exists for Google to
-                # attach to and cannot be logged into directly.
-                user.set_unusable_password()
+                user.email = email
+                user.is_staff = True
+                user.is_superuser = not options["staff_only"]
 
-        user.save()
+                password = None
+                if options["set_password"]:
+                    password = secrets.token_urlsafe(16)
+                    user.set_password(password)
+                elif created:
+                    # No password: the account exists for Google to attach to and
+                    # cannot be logged into directly.
+                    user.set_unusable_password()
 
-        what = "created" if created else "updated"
+                user.save()
+                results.append((email, created, password))
+
         role = "staff" if options["staff_only"] else "superuser"
-        self.stdout.write(self.style.SUCCESS(f"{email} {what} as {role}"))
-
-        if password:
-            self.stdout.write("")
-            self.stdout.write(self.style.WARNING(f"  password: {password}"))
-            self.stdout.write("  Shown once. Change it after signing in.")
-        elif created:
+        for email, created, password in results:
             self.stdout.write(
-                "  No password set — sign in with Google, or rerun with --set-password."
+                self.style.SUCCESS(f"  {email}: {'created' if created else 'updated'} as {role}")
             )
+            if password:
+                self.stdout.write(self.style.WARNING(f"    password: {password}"))
+
+        self.stdout.write(f"\n{len(results)} account(s) ready.")
+        if not options["set_password"]:
+            self.stdout.write("They sign in with Google; no password is set.")

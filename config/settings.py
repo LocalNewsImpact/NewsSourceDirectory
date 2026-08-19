@@ -71,6 +71,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "directory.views.auth_context",
             ]
         },
     }
@@ -116,6 +117,18 @@ LOGIN_URL = "/accounts/login/"
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*"]
 SOCIALACCOUNT_ADAPTER = "directory.auth.DomainRestrictedAdapter"
+
+# Let a Google identity attach to an account that already exists with the same
+# address, so an editor can be added before they have ever signed in.
+#
+# allauth disables this by default because it is an account-takeover vector:
+# anyone who can obtain a token for an address could claim the matching local
+# account. That risk does not apply here — DomainRestrictedAdapter refuses any
+# login whose email is unverified or outside the hosted domain, so the only
+# identities that reach this point are ones Google has verified inside an
+# organisation we control.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 
 # Only this domain may reach the admin. `hd` below is a hint to Google's account
 # chooser and is NOT enforcement — the claim is verified in the adapter.
