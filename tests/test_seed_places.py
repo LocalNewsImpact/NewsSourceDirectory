@@ -17,7 +17,8 @@ pytestmark = [pytest.mark.integration, pytest.mark.django_db]
 # version of this fixture used invented uppercase names, so it passed while the
 # command could never have read the actual file.
 HEADER = (
-    "\ufeff" "feature_id|feature_name|feature_class|state_name|state_numeric"
+    "\ufeff"
+    "feature_id|feature_name|feature_class|state_name|state_numeric"
     "|county_name|county_numeric"
 )
 # Real ids and real classifications. New Jersey municipalities are Civil
