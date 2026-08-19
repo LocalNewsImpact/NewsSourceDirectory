@@ -17,9 +17,10 @@ help: ## Show these targets
 # --- setup ------------------------------------------------------------------
 
 .PHONY: setup
-setup: $(VENV) .env node_modules db-up ## Provision everything for a new checkout
+setup: $(VENV) .env node_modules db-up migrate seed ## Provision everything for a new checkout
 	@echo
-	@echo "Ready. 'make check' runs what CI runs."
+	@echo "Ready. 'make run' starts the admin, 'make check' runs what CI runs."
+	@echo "First time? 'make superuser' to create a login."
 
 $(VENV):
 	python3 -m venv $(VENV)
@@ -52,6 +53,32 @@ db-down: ## Stop Postgres, keeping data
 db-reset: ## Destroy the database and start clean
 	docker compose down -v
 	$(MAKE) db-up
+
+# --- django -----------------------------------------------------------------
+
+.PHONY: migrate
+migrate: $(VENV) db-up ## Apply database migrations
+	$(PY) manage.py migrate
+
+.PHONY: migrations
+migrations: $(VENV) ## Generate migrations after a model change
+	$(PY) manage.py makemigrations directory
+
+.PHONY: seed
+seed: $(VENV) ## Create the controlled vocabularies
+	$(PY) manage.py seed_vocabularies
+
+.PHONY: superuser
+superuser: $(VENV) ## Create an admin login
+	$(PY) manage.py createsuperuser
+
+.PHONY: run
+run: $(VENV) db-up ## Start the admin at http://localhost:8000/admin/
+	$(PY) manage.py runserver
+
+.PHONY: docker-build
+docker-build: ## Build the deployment image
+	docker build -t news-source-directory .
 
 # --- checks -----------------------------------------------------------------
 

@@ -158,8 +158,8 @@ structural rather than a per-column flag.
   becomes structurally impossible.
 - **`Collection`** — a named subset, the unit handed to the crawler.
 
-A draft is in [`schema/models_draft.py`](schema/models_draft.py), written
-against the real columns of both CSVs.
+Implemented in [`directory/models.py`](directory/models.py), with every choice
+argued from the data in [docs/schema-decisions.md](docs/schema-decisions.md).
 
 ### Identity is not the domain
 
@@ -376,8 +376,8 @@ Nothing is built yet.
 
 - [x] CI: lint, tests, data-quality rules, feed build
 - [x] Public static feed generator
-- [ ] Schema review — [`schema/models_draft.py`](schema/models_draft.py)
-- [ ] Django project, admin, import/export and history wired up
+- [x] Schema review — nine decisions in [docs/schema-decisions.md](docs/schema-decisions.md)
+- [x] Django project, admin, import/export and history wired up
 - [ ] `import_source`, `rebuild_outlets`, `publish` management commands
 - [ ] GCP project, Cloud SQL, IAP, bucket
 - [ ] Widget build and the WordPress shortcode plugin

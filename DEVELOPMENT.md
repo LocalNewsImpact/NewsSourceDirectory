@@ -93,15 +93,23 @@ since a serverless NEG needs an existing service.
 
 ---
 
-## M2 — Django skeleton
+## M2 — Django skeleton  ·  DONE
 
-**Deliverable** the admin running locally against Postgres.
+The admin runs locally against Postgres and the image deploys.
 
-Models from M0, `django-import-export`, `django-simple-history`, WhiteNoise,
-Gunicorn. Admin configured for the work that matters: `CoverageRecord` inline on
-the outlet form, a `needs_review` list filter, merge and split actions.
+Delivered: the models from M0, `django-import-export`, `django-simple-history`,
+allauth with the domain claim verified server-side, WhiteNoise, Gunicorn, a
+`Dockerfile`, and the first migration. The admin has the `CoverageRecord` inline
+on the outlet form, a "distinct names in coverage" filter that surfaces suspected
+bad merges, and a **split action** that undoes one.
 
-**Depends on** M0. **Done when** an editor can add and edit an outlet locally.
+`make setup` now migrates and seeds the vocabularies, so a new checkout has
+working dropdowns rather than empty ones.
+
+130 tests, 25 of them against a real Postgres.
+
+The `Dockerfile` also switches on the build, migrate and deploy steps in
+`deploy.yml`, which have been waiting for it.
 
 ---
 

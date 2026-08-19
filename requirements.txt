@@ -11,6 +11,7 @@ dj-database-url>=2.3
 django-import-export>=4.3      # bulk CSV/xlsx with a dry-run diff
 django-simple-history>=3.8     # per-field history and revert
 django-allauth>=65.3           # Google sign-in, domain-checked server-side
+requests>=2.32                 # allauth's Google provider imports it directly
 
 # Import pipeline.
 pandas>=2.2
