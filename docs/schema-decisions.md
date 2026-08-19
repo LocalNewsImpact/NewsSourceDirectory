@@ -131,3 +131,74 @@ outlet, and flattening them would destroy information.
 
 `city` at 7% is the honest middle: an outlet has a home city, and its coverage
 often spans neighbouring ones. Roll up the primary and let coverage hold the rest.
+
+---
+
+## 5. Is geographic coverage first-class?
+
+**Answer: yes — `Place` and `Outlet ↔ Place`.**
+
+The New Jersey data already carries **4,480 assertions that a named outlet covers
+a named municipality**, across 562 municipalities and 183 outlets. Median two
+municipalities per outlet; one covers 663.
+
+| Municipalities served by | Count |
+|---|---|
+| exactly 1 outlet | **27** |
+| 2 | 7 |
+| 3 | 21 |
+| 4 | 14 |
+| 5 or more | 305 |
+
+Those 27 are the reason. A registry that stores this as provenance can show it
+per record but cannot answer "which places are served by one outlet or none",
+which is close to the point of the exercise.
+
+`OutletPlace` is a through model rather than a plain many-to-many so each claim
+keeps its source. Who asserted that an outlet covers Montclair is the difference
+between a finding and an assumption. `gnis` is the join key — names collide
+across states and within them.
+
+---
+
+## 6. Is ownership normalised?
+
+**Answer: yes — an `Owner` table.**
+
+832 records carry ownership across **281 distinct strings**: Adams Publishing
+Group (102), Forum Communications (36), Townsquare Media (26), Lillie Suburban
+(22). Chain consolidation is a core research subject, and a text field cannot
+group "Townsquare Media, Inc" with "Townsquare Media Inc".
+
+`Owner.parent` is self-referential, so a subsidiary can point at its group
+without flattening the distinction — which matters when a chain acquires another
+chain rather than a title. `ownership_type` moves onto `Owner`, since it
+describes the owner rather than the outlet, and varies 0% within an outlet.
+
+Import needs a one-time reconciliation of spelling variants, via `match_key`.
+
+---
+
+## 7. Do closed outlets publish?
+
+**Answer: yes, clearly marked.**
+
+79 outlets carry a closing date. A directory of local news that silently drops
+closures hides exactly the phenomenon the consortium documents, so `status`
+publishes alongside everything else and the widget can show or filter it.
+
+The dates are inconsistent — `2016` beside `1/18/2019` and `10/5/2019` — so
+`founded` and `closed_date` become real date fields, parsed where possible, with
+`founded_raw` and `closed_date_raw` keeping the original either way. A value is
+never discarded because it failed to parse.
+
+---
+
+## 8. Is succession modelled?
+
+**Answer: not yet, and nothing forecloses it.**
+
+`django-simple-history` already records a rename, so the trail exists.
+`Status.MERGED` marks the outcome without asserting a structure. A
+predecessor/successor link can be added when there is a real case to hang it on,
+rather than a hypothetical one.

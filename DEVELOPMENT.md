@@ -41,9 +41,19 @@ see [docs/schema-decisions.md](docs/schema-decisions.md):
 4. **Roll-ups chosen by measurement** — descriptive fields disagree 0–4% of the
    time, per-observation fields 26–37%.
 
-**Remaining for a human:** read the models and say whether the shape is right.
-That is a judgement call about how the registry will be used, not something the
-data can settle.
+Four further questions were settled on 2026-08-19:
+
+5. **Geography is first-class** — `Place` plus an `Outlet ↔ Place` through model,
+   because 4,480 coverage assertions already exist and 27 municipalities have a
+   single outlet.
+6. **Ownership is normalised** — an `Owner` table with a self-referential parent,
+   because 281 distinct strings cannot answer chain-level questions.
+7. **Closed outlets publish, clearly marked**, and dates are parsed with the raw
+   value kept.
+8. **Succession is not modelled yet** and nothing forecloses it.
+
+**Remaining for a human:** read the models once more now that Place, Owner and
+status are in, and confirm the shape.
 
 **Done when** the models are agreed and the first migration can be written.
 

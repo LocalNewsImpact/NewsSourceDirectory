@@ -68,6 +68,13 @@ PUBLIC_FIELDS = frozenset(
         "record_count",
         "source_count",
         "source_files",
+        # Added with the schema decisions: closures publish, clearly marked;
+        # ownership publishes as the owner's name; places publish as a list.
+        "status",
+        "owner",
+        "founded",
+        "closed_date",
+        "places",
     }
 )
 
