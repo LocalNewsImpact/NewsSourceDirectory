@@ -124,6 +124,22 @@ The `Dockerfile` also switches on the build, migrate and deploy steps in
    the prototype's 2,103, and 222 rows flagged for review.
 4. Vocabulary mapping — the 18 medium values onto ~7, states onto full names.
 
+**Done so far** — `import_source` and `rebuild_outlets`, run against the real
+data:
+
+| | |
+|---|---|
+| Coverage records imported | 8,561 |
+| Outlets derived | **2,809** (prototype claimed 2,103) |
+| Flagged for review | 167 |
+| With a domain | 2,666 |
+| With a state | 2,691 |
+| With a medium | 2,581 |
+| Owners normalised | 277, from 281 distinct strings |
+| Closed outlets | 86 |
+
+**Still to do:** `seed_places` from GNIS and the `OutletPlace` links.
+
 **Depends on** M2. **Done when** the rules report zero errors on derived data, or
 every remaining error is deliberate and flagged.
 
