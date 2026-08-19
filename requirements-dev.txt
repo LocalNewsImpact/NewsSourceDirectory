@@ -1,6 +1,9 @@
 -r requirements.txt
 
-pytest>=8.3
-pytest-django>=4.9
-pytest-cov>=6.0
-ruff>=0.9
+# Pinned exactly, and CI reads the pins from this file. A newer ruff locally than
+# in CI means "passes locally, fails in CI" — which is how the F811 that shadowed
+# Outlet.identity_key reached main.
+pytest==8.3.4
+pytest-django==4.9.0
+pytest-cov==6.0.0
+ruff==0.15.22

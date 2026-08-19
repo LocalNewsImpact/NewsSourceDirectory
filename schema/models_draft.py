@@ -28,8 +28,6 @@ import uuid
 from django.db import models
 from simple_history.models import HistoricalRecords
 
-from schema.identity import identity_key  # noqa: F401  — used by rebuild_outlets
-
 # Fields written to the public export. Named explicitly so a future column
 # cannot be published by accident — see MIGRATION.md.
 PUBLIC_FIELDS = (
@@ -44,8 +42,8 @@ PUBLIC_FIELDS = (
     "county",
 )
 
-# The identity rule lives in schema/identity.py so the same function is used by
-# rebuild_outlets, by tests, and by anything that needs to match an outlet later.
+# The identity rule lives in schema/identity.py — imported by rebuild_outlets,
+# not here, where it would shadow the model field of the same name.
 
 
 class Medium(models.Model):

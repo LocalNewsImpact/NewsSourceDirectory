@@ -57,6 +57,15 @@ branch  ->  push  ->  CI on every push  ->  PR  ->  review  ->  merge  ->  deplo
    a new commit dismisses stale approvals.
 6. **Merge.** That triggers deployment.
 
+### Tool versions are pinned exactly
+
+`ruff` and `pytest` are pinned in `requirements-dev.txt`, and CI reads the pins
+from that file rather than repeating them. This is not fussiness: a newer ruff
+locally than in CI means "passes on my machine, fails in CI", and that is
+precisely how an `F811` that shadowed `Outlet.identity_key` reached `main`.
+
+Upgrade by changing the pin in one place, in its own pull request.
+
 ### Things that will fail review
 
 - **Adding a column to the public feed without saying so.** `PUBLIC_FIELDS` and
