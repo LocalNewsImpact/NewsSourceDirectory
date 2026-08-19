@@ -21,7 +21,7 @@ Confirmed against the live org, not assumed:
 **Domain Restricted Sharing is enforced**, allowing only customer `C04iy3g4y`.
 A personal Google account cannot hold any IAM role in this org — the grant is
 refused at the API. Everyone needing access must use a `@localnewsimpact.org`
-identity; Matt's is `matt@localnewsimpact.org`.
+identity; Matt's is `treasurer@localnewsimpact.org`.
 
 ---
 
