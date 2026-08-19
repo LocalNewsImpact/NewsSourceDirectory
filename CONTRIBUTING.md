@@ -81,6 +81,19 @@ Places are separate and optional locally. `seed_places` reads the GNIS national
 file, which is large; `--states Missouri` keeps it manageable, and `--url`
 downloads the file rather than requiring a local copy.
 
+### Optional: commit hooks
+
+`.pre-commit-config.yaml` runs ruff, whitespace fixes and the unit tests before
+each commit. `make setup` does not install it, because a hook that surprises
+someone mid-commit is worse than a check they chose:
+
+```bash
+make hooks
+```
+
+It catches the same things `make check` does, earlier. Skipping it costs nothing
+so long as `make check` passes before you push.
+
 ### Ports
 
 Postgres is published on **5434**, deliberately: 5432 is usually a system
