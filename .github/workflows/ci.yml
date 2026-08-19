@@ -193,11 +193,11 @@ jobs:
             -e DATABASE_URL='postgres://nobody:nobody@127.0.0.1:1/none' \
             news-source-directory
           for _ in $(seq 1 20); do
-            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz || true)"
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/_health || true)"
             [ -n "$code" ] && [ "$code" != "000" ] && break
             sleep 2
           done
-          echo "healthz -> $code"
+          echo "_health -> $code"
           docker logs smoke | tail -20
           # 503 is the correct answer with no database: the service is up and
           # honest about being unable to serve. 200 here would mean the health

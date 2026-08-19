@@ -11,6 +11,6 @@ from django.urls import include, path
 from directory.views import healthz
 
 urlpatterns = [
-    path("healthz", healthz, name="healthz"),
+    path("_health", healthz, name="healthz"),
     path("accounts/", include("allauth.urls")),
 ]
