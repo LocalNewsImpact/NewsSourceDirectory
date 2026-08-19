@@ -141,6 +141,35 @@ class Place(models.Model):
     # gnis: 561 gnis values and 562 mun_id values make 597 pairs, so roughly 36
     # disagree and need review.
     mun_id = models.CharField(max_length=64, blank=True, db_index=True)
+
+    # FIPS, straight from GNIS. state_fips + county_fips is the standard 5-digit
+    # county code (29 + 095 = 29095, Jackson County, Missouri) and joins this to
+    # Census data at county level without any further lookup.
+    state_fips = models.CharField(max_length=2, blank=True, db_index=True)
+    county_fips = models.CharField(max_length=3, blank=True)
+    county_name = models.CharField(max_length=128, blank=True)
+
+    # Census GEOID, for joining place-level attributes: population, land area,
+    # anything in ACS. GNIS does not carry it, but the Census Gazetteer keys on
+    # ANSICODE, which *is* the GNIS feature id — so the join is exact rather
+    # than a name match. Verified against the real coverage data: 505 of 561
+    # ids resolve, 290 through the places file and the rest through county
+    # subdivisions, because New Jersey is mostly townships.
+    #
+    # Left empty until something populates it. The point of recording it here is
+    # that identity already carries the key, so attributes can arrive later
+    # without a migration or a guess.
+    census_geoid = models.CharField(max_length=16, blank=True, db_index=True)
+    census_geoid_source = models.CharField(
+        max_length=32, blank=True, help_text="which gazetteer file it came from"
+    )
+
+    # What GNIS called it. 'Civil' means different things by state — New Jersey
+    # municipalities are Civil, while in Missouri the class is mostly land
+    # surveys and planning regions — so the raw value is kept rather than
+    # collapsed into `kind`.
+    feature_class = models.CharField(max_length=64, blank=True)
+
     seeded_from_gnis = models.BooleanField(default=False)
 
     class Meta:

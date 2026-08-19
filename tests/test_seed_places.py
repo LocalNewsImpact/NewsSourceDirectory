@@ -13,14 +13,23 @@ from directory.models import CoverageRecord, Outlet, OutletPlace, Place, SourceI
 
 pytestmark = [pytest.mark.integration, pytest.mark.django_db]
 
-HEADER = "FEATURE_ID|FEATURE_NAME|FEATURE_CLASS|STATE_ALPHA|COUNTY_NAME"
+# The real header: lowercase, BOM, no state abbreviation column. An earlier
+# version of this fixture used invented uppercase names, so it passed while the
+# command could never have read the actual file.
+HEADER = (
+    "\ufeff"
+    "feature_id|feature_name|feature_class|state_name|state_numeric"
+    "|county_name|county_numeric"
+)
+# Real ids and real classifications. New Jersey municipalities are Civil
+# features, which is why that class cannot be filtered out.
 ROWS = [
-    "885195|Newark|Populated Place|NJ|Essex",
-    "885196|Montclair|Populated Place|NJ|Essex",
-    "885197|Bloomfield|Civil|NJ|Essex",
-    "765810|Columbia|Populated Place|MO|Boone",
-    "999999|Some Creek|Stream|NJ|Essex",  # wrong feature class
-    "888888|Mount Nowhere|Summit|MO|Boone",  # wrong feature class
+    "885195|Demarest|Civil|New Jersey|34|Bergen|003",
+    "882089|Pemberton|Civil|New Jersey|34|Burlington|005",
+    "885188|Clifton|Civil|New Jersey|34|Passaic|031",
+    "765810|Columbia|Populated Place|Missouri|29|Boone|019",
+    "999999|Some Creek|Stream|New Jersey|34|Bergen|003",
+    "888888|Mount Nowhere|Summit|Missouri|29|Boone|019",
 ]
 
 
@@ -42,14 +51,36 @@ def seed(path, **kwargs):
 
 class TestSeeding:
     def test_only_places_people_live_in_are_seeded(self, gnis_file, vocab):
-        """The national file is mostly streams, summits and cemeteries."""
+        """The national file is 982k rows, of which 256k are places or civil
+        divisions; the rest are streams, summits and cemeteries."""
         seed(gnis_file)
         assert Place.objects.count() == 4
         assert not Place.objects.filter(name="Some Creek").exists()
 
-    def test_places_are_attached_to_their_state(self, gnis_file, vocab):
+    def test_places_are_attached_to_their_state_by_name(self, gnis_file, vocab):
+        """The file names states in full; there is no abbreviation column."""
         seed(gnis_file)
-        assert Place.objects.get(name="Newark").state == State.objects.get(code="NJ")
+        assert Place.objects.get(name="Demarest").state == State.objects.get(code="NJ")
+
+    def test_fips_codes_are_captured(self, gnis_file, vocab):
+        """state_fips + county_fips is the join to Census county data."""
+        seed(gnis_file)
+        place = Place.objects.get(name="Columbia")
+        assert place.state_fips == "29"
+        assert place.county_fips == "019"
+        assert place.county_name == "Boone"
+
+    def test_the_feature_class_is_kept(self, gnis_file, vocab):
+        """'Civil' means municipalities in New Jersey and land surveys in
+        Missouri, so the raw value has to survive."""
+        seed(gnis_file)
+        assert Place.objects.get(name="Demarest").feature_class == "Civil"
+
+    def test_civil_divisions_are_seeded_not_skipped(self, gnis_file, vocab):
+        """506 of the 511 GNIS ids in the coverage data are Civil. Filtering the
+        class out would break every real link we have."""
+        seed(gnis_file)
+        assert Place.objects.filter(feature_class="Civil").count() == 3
 
     def test_seeded_places_are_marked_as_such(self, gnis_file, vocab):
         """So a place someone adds by hand is distinguishable from the gazetteer."""
@@ -57,7 +88,7 @@ class TestSeeding:
         assert Place.objects.filter(seeded_from_gnis=True).count() == 4
 
     def test_states_can_be_limited(self, gnis_file, vocab):
-        seed(gnis_file, states="MO")
+        seed(gnis_file, states="Missouri")
         assert Place.objects.count() == 1
 
     def test_reseeding_creates_nothing_new(self, gnis_file, vocab):
@@ -106,7 +137,7 @@ class TestLinking:
         )
         seed(gnis_file, link=True)
         link = OutletPlace.objects.get()
-        assert link.place.name == "Newark"
+        assert link.place.name == "Demarest"
         assert link.match_method == OutletPlace.MatchMethod.GNIS
         assert link.needs_review is False
 
@@ -157,7 +188,7 @@ class TestLinking:
             source_import=source,
             source_file="nj.xlsx",
             outlet_name_raw="X",
-            gnis="885196",
+            gnis="882089",
             state_raw="New Jersey",
         )
         seed(gnis_file, link=True)
