@@ -35,6 +35,12 @@ node_modules: package.json
 	npm install --silent
 	@touch node_modules
 
+.PHONY: hooks
+hooks: $(VENV) ## Install the pre-commit hooks (optional; make check is the same gate)
+	$(PIP) install --quiet -r requirements-dev.txt
+	$(VENV)/bin/pre-commit install
+	@echo "hooks installed — ruff, whitespace and the unit tests run on commit"
+
 # --- database ---------------------------------------------------------------
 
 .PHONY: db-up

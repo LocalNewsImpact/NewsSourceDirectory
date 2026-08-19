@@ -1,0 +1,42 @@
+# Dependency updates arrive as pull requests, so they go through the same CI and
+# review as anything else. Weekly rather than daily: this project has one
+# deployment and a flood of PRs is how updates start being ignored.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Django and its immediate ecosystem move together; separate PRs for each
+      # produce conflicts that have to be resolved by hand.
+      django:
+        patterns:
+          - django
+          - django-*
+    labels:
+      - dependencies
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
