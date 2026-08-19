@@ -57,6 +57,25 @@ branch  ->  push  ->  CI on every push  ->  PR  ->  review  ->  merge  ->  deplo
    a new commit dismisses stale approvals.
 6. **Merge.** That triggers deployment.
 
+### What `main` actually enforces
+
+Set on the branch, not by convention:
+
+| Rule | Setting |
+|---|---|
+| Direct pushes | blocked — pull request required |
+| Approvals | 1, from a CODEOWNER |
+| Stale approvals | dismissed when you push again |
+| Required checks | Lint, Tests, Integration, Data quality, Public feed, Pages payload |
+| Branch must be current with `main` | yes |
+| Unresolved conversations | block merge |
+| Force push / delete `main` | blocked |
+
+Administrators are currently exempt from the pull-request requirement, so that a
+one-person day is not deadlocked by needing someone else to approve. Everyone
+else is not. If the team grows past the point where that helps, turn it on with
+`enforce_admins`.
+
 ### Tool versions are pinned exactly
 
 `ruff` and `pytest` are pinned in `requirements-dev.txt`, and CI reads the pins
