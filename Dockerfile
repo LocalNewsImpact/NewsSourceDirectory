@@ -1,43 +1,28 @@
-# One image, two services. The admin and the researcher portal differ by
-# SERVICE_ROLE — which selects the URLconf — and by the database role they
-# connect as. See docs/auth.md.
+# The application layer: nothing but our own code on top of the dependency image.
+#
+# BASE_IMAGE is supplied by the deploy, pinned to a hash of requirements.txt, so
+# a deploy that changes only application code builds in seconds and pushes a few
+# megabytes rather than reinstalling every library.
 
-FROM python:3.11-slim AS base
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+ARG BASE_IMAGE=sources-admin-base:local
+FROM ${BASE_IMAGE}
 
 WORKDIR /app
-
-# Build tools for psycopg and friends, removed in the same layer so they leave
-# nothing behind in the image.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential libpq-dev \
- && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt \
- && apt-get purge -y build-essential \
- && apt-get autoremove -y
 
 COPY manage.py ./
 COPY config/ ./config/
 COPY directory/ ./directory/
 COPY checks/ ./checks/
 COPY feed/ ./feed/
-# Without this the sign-in page falls back to allauth's unstyled default — and
-# offers a Sign Up link, which this application does not have.
 COPY templates/ ./templates/
 
 # Static files are baked in and served by WhiteNoise; without this the admin
-# renders unstyled on Cloud Run. A placeholder key is enough to import settings.
+# renders unstyled on Cloud Run.
 RUN DJANGO_SECRET_KEY=build-only DATABASE_URL=postgres://u:p@localhost/db \
-    python manage.py collectstatic --noinput
+    python manage.py collectstatic --noinput \
+ && chown -R app:app /app
 
-RUN useradd --create-home --uid 1000 app && chown -R app:app /app
 USER app
-
 EXPOSE 8080
 
 # One worker because Cloud Run bills per instance and handles concurrency
