@@ -119,21 +119,39 @@ SOCIALACCOUNT_ADAPTER = "directory.auth.DomainRestrictedAdapter"
 # chooser and is NOT enforcement — the claim is verified in the adapter.
 ALLOWED_GOOGLE_DOMAIN = os.environ.get("ALLOWED_GOOGLE_DOMAIN", "localnewsimpact.org")
 
-GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
-SOCIALACCOUNT_PROVIDERS = {
-    "google": {
-        "APP": {
-            "client_id": GOOGLE_OAUTH_CLIENT_ID,
-            "secret": os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
-            "key": "",
-        },
-        "SCOPE": ["profile", "email"],
-        "AUTH_PARAMS": {"hd": ALLOWED_GOOGLE_DOMAIN},
+# .strip() matters: the secrets exist as blank placeholders until real
+# credentials are issued, and whitespace would read as "configured".
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
+
+
+def build_socialaccount_providers(client_id: str, secret: str, hosted_domain: str) -> dict:
+    """Describe the Google provider, and only describe an app when there is one.
+
+    An APP entry with empty credentials is worse than none: allauth uses it, the
+    token exchange fails, and the user sees "Third-Party Login Failure" with a
+    bare 401 in the logs. Without it the provider is simply unconfigured, which
+    says so plainly and lets a contributor run the project on the ordinary
+    Django login.
+    """
+    config = {
+        "google": {
+            "SCOPE": ["profile", "email"],
+            # A hint to Google's account chooser, not enforcement. The claim is
+            # verified in directory/auth.py.
+            "AUTH_PARAMS": {"hd": hosted_domain},
+        }
     }
-}
-# With no client id configured, Google sign-in is simply absent and the ordinary
-# Django login is used. A new contributor needs no OAuth credentials to run this.
-SOCIALACCOUNT_ENABLED = bool(GOOGLE_OAUTH_CLIENT_ID)
+    if client_id and secret:
+        config["google"]["APP"] = {"client_id": client_id, "secret": secret, "key": ""}
+    return config
+
+
+SOCIALACCOUNT_PROVIDERS = build_socialaccount_providers(
+    GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, ALLOWED_GOOGLE_DOMAIN
+)
+
+GOOGLE_SIGN_IN_CONFIGURED = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
 
 # --- publishing -------------------------------------------------------------
 
