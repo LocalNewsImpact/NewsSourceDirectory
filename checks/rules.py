@@ -71,6 +71,34 @@ PUBLIC_FIELDS = frozenset(
     }
 )
 
+# Coverage fields permitted in the public feed. Coverage records are research
+# provenance — which study made which claim — so nearly all of it publishes. The
+# list is still explicit so a column added upstream is private until reviewed.
+COVERAGE_PUBLIC_FIELDS = frozenset(
+    {
+        "outlet_id",
+        "source_file",
+        "source_sheet",
+        "outlet_name_raw",
+        "url",
+        "medium",
+        "state",
+        "county",
+        "city",
+        "notes",
+        "mun_id",
+        "gnis",
+        "domains_set_length",
+        "article_length",
+        "ownership",
+        "ownership_type",
+        "founded",
+        "closed_date",
+        "updated_on",
+        "newsbank_availability",
+    }
+)
+
 _SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*://", re.I)
 _URLISH = re.compile(r"^(https?://|www\.)", re.I)
 
@@ -285,6 +313,22 @@ def rule_export_columns_allowlisted(
         break  # columns are uniform; one row is enough
 
 
+def rule_coverage_export_allowlisted(
+    coverage_export: Iterable[Row] | None = None, **_
+) -> Iterator[Violation]:
+    """Same guard as the outlet export, for the coverage feed."""
+    for row in coverage_export or ():
+        extra = sorted(set(row) - COVERAGE_PUBLIC_FIELDS)
+        if extra:
+            yield Violation(
+                "coverage_export_allowlisted",
+                Severity.ERROR,
+                f"coverage feed carries non-public column(s): {', '.join(extra)}",
+                row.get("outlet_id", ""),
+            )
+        break
+
+
 RuleFn = Callable[..., Iterator[Violation]]
 
 ALL_RULES: tuple[RuleFn, ...] = (
@@ -300,6 +344,7 @@ ALL_RULES: tuple[RuleFn, ...] = (
     rule_coverage_has_provenance,
     rule_coverage_outlet_resolves,
     rule_export_columns_allowlisted,
+    rule_coverage_export_allowlisted,
 )
 
 
@@ -307,9 +352,17 @@ def run_all(
     outlets: Sequence[Row],
     coverage: Sequence[Row] = (),
     export: Iterable[Row] | None = None,
+    coverage_export: Iterable[Row] | None = None,
     rules: Sequence[RuleFn] = ALL_RULES,
 ) -> list[Violation]:
     found: list[Violation] = []
     for rule in rules:
-        found.extend(rule(outlets=outlets, coverage=coverage, export=export))
+        found.extend(
+            rule(
+                outlets=outlets,
+                coverage=coverage,
+                export=export,
+                coverage_export=coverage_export,
+            )
+        )
     return found

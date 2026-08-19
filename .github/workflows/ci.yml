@@ -96,13 +96,38 @@ jobs:
           import json, pathlib, sys
           sys.path.insert(0, ".")
           from checks.rules import PUBLIC_FIELDS
-          m = json.loads(pathlib.Path("dist/feed/manifest.json").read_text())
-          rows = json.loads((pathlib.Path("dist/feed") / m["files"]["sites"]["path"]).read_text())
+          from checks.rules import COVERAGE_PUBLIC_FIELDS
+          base = pathlib.Path("dist/feed")
+          m = json.loads((base / "manifest.json").read_text())
+
+          rows = json.loads((base / m["files"]["sites"]["path"]).read_text())
           extra = sorted({k for r in rows for k in r} - PUBLIC_FIELDS)
           if extra:
-              print(f"::error::feed carries non-public columns: {extra}")
+              print(f"::error::sites feed carries non-public columns: {extra}")
               raise SystemExit(1)
-          print(f"{len(rows)} rows, fields all allowlisted")
+          print(f"sites: {len(rows)} rows, fields all allowlisted")
+
+          cov_meta = m["files"].get("coverage")
+          if not cov_meta:
+              print("::error::coverage feed was not published")
+              raise SystemExit(1)
+          cov = json.loads((base / cov_meta["path"]).read_text())
+          extra = sorted({k for r in cov for k in r} - COVERAGE_PUBLIC_FIELDS)
+          if extra:
+              print(f"::error::coverage feed carries non-public columns: {extra}")
+              raise SystemExit(1)
+          print(f"coverage: {len(cov)} rows, fields all allowlisted")
+
+          if m["files"]["sites"]["load"] != "eager" or cov_meta["load"] != "lazy":
+              print("::error::load hints wrong; sites must be eager and coverage lazy")
+              raise SystemExit(1)
+
+          known = {r["outlet_id"] for r in rows}
+          orphans = {r["outlet_id"] for r in cov} - known
+          if orphans:
+              print(f"::error::coverage rows with no published outlet: {sorted(orphans)[:5]}")
+              raise SystemExit(1)
+          print("coverage joins cleanly to sites on outlet_id")
           PY
       - name: Search index builds against the same feed
         run: node tools/build-search-index.mjs dist/feed
