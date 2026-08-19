@@ -1,0 +1,33 @@
+name: Bug
+description: The software does not behave as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happens instead
+      description: Paste the error and the command or the page it came from.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Local development
+        - The admin at sources.localnewsimpact.org
+        - The public directory or the WordPress page
+        - CI
+        - A management command
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce it
