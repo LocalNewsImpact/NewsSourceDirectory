@@ -8,9 +8,22 @@
 
 name: Deploy
 
+# Documentation does not reach the running service. The image copies manage.py,
+# config/, directory/, checks/, feed/ and templates/ and nothing else, so a
+# Markdown-only merge previously spent a full build, a migration job and a
+# revision rollout to change nothing. A push that touches both docs and code
+# still deploys — the filter skips the run only when every changed path is
+# listed here.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'mockup/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/dependabot.yml'
+      - '.pre-commit-config.yaml'
   workflow_dispatch:
 
 concurrency:
