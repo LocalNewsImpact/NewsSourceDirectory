@@ -103,6 +103,26 @@ Upgrade by changing the pin in one place, in its own pull request.
   why in the PR — do not quiet it.
 - **Committing `.env`, credentials, or `dist/`.** All are gitignored.
 
+## Publishing the feed
+
+The registry lives in a database, which produces no git event, so publishing is
+triggered rather than inferred:
+
+| Trigger | When |
+|---|---|
+| **"Publish the public feed now"** in the admin | an editor decides something is worth showing |
+| after a successful **Deploy** | a projection or schema change alters the feed even with no edits |
+| daily at 06:00 Central | the safety net beneath both |
+| Actions → Run workflow | by hand |
+
+The admin only *requests* a publish. The workflow does the reading, through a
+role holding `SELECT` and nothing else, so the path that produces public data
+cannot also change it.
+
+The button needs a GitHub token with `contents: write` in the
+`github-dispatch-token` secret. Without it the action says so plainly rather
+than silently doing nothing.
+
 ## Running something against production
 
 ```bash

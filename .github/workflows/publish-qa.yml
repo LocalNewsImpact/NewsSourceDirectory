@@ -12,8 +12,21 @@
 name: Publish QA feed
 
 on:
+  # An editor pressing "Publish now" in the admin. The useful trigger: curation
+  # happens in the database, which produces no git event of its own.
+  repository_dispatch:
+    types: [publish-feed]
+
+  # After a deploy, because a schema or projection change alters what the feed
+  # contains even when no one has edited anything.
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
+
+  # The safety net beneath both, for a signal that never arrived.
   schedule:
     - cron: "0 11 * * *"      # 06:00 Central, before anyone starts editing
+
   workflow_dispatch:
     inputs:
       allow_errors:
@@ -37,6 +50,11 @@ jobs:
   publish:
     name: Build and commit the feed
     runs-on: ubuntu-latest
+    # A failed deploy leaves the service on the previous revision, so publishing
+    # from it would describe a version that is not serving.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v4
 
@@ -84,5 +102,8 @@ jobs:
             echo "registry unchanged — nothing to publish"
             exit 0
           fi
-          git commit -m "Publish feed $(date -u +%Y-%m-%d)"
+          git commit -m "Publish feed $(date -u +%Y-%m-%d) (${{ github.event_name }})"
+          # main is protected and this is a bot, so push only what it wrote:
+          # a rebase keeps it from failing when a merge landed mid-run.
+          git pull --rebase --autostash
           git push
