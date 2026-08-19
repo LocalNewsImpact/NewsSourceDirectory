@@ -236,7 +236,7 @@ textarea{width:100%;height:220px;font-family:'Courier New',monospace;font-size:1
   </div>
 
   <section class="panel" id="panel-explorer" role="tabpanel" aria-labelledby="tab-explorer">
-    <p class="caption">Both tables in full, unfiltered, every column &mdash; for QA and drill-down.</p>
+    <p class="caption">Every column of both tables, with the search and filters above applied &mdash; for QA and drill-down.</p>
     <div class="meta"><p class="count" id="exp-count"></p><span class="spacer"></span>
       <div class="toggle" id="exp-toggle">
         <button type="button" data-exp="outlets" aria-pressed="true">Outlets table</button>
@@ -464,10 +464,16 @@ function filteredOutlets() {
   });
 }
 function filteredCoverage() {
-  const {state: st, source: sf} = state.f;
+  const {state: st, source: sf, medium: md} = state.f;
   let rows = COVERAGE;
   if (st.size) rows = rows.filter(r => st.has(r.state));
   if (sf.size) rows = rows.filter(r => sf.has(r.source_file));
+  if (md.size) {
+    // A coverage row carries no medium that matches the facet, so the medium
+    // filter reaches it through the outlet the row belongs to.
+    const ids = new Set(OUTLETS.filter(o => md.has(o.primary_medium)).map(o => o.outlet_id));
+    rows = rows.filter(r => ids.has(r.outlet_id));
+  }
   if (state.q) {
     const q = state.q;
     rows = rows.filter(r => [r.outlet_name_raw, r.city, r.county, r.state, r.notes]
@@ -555,15 +561,19 @@ function render() {
   const per = PER[state.tab];
   let rows, label;
 
-  if (isBrowse)                    { rows = filteredOutlets();  label = 'outlets'; }
+  // The explorer differs from the other tabs in the columns it shows, not in
+  // the rows: search and the facets apply there too.
+  if (isBrowse)                     { rows = filteredOutlets();  label = 'outlets'; }
   else if (state.tab === 'coverage'){ rows = filteredCoverage(); label = 'coverage records'; }
-  else { rows = state.exp === 'outlets' ? OUTLETS : COVERAGE; label = 'rows (unfiltered)'; }
+  else if (state.exp === 'outlets') { rows = filteredOutlets();  label = 'outlets'; }
+  else                              { rows = filteredCoverage(); label = 'coverage records'; }
 
   const pages = Math.max(1, Math.ceil(rows.length / per));
   state.page = Math.min(state.page, pages);
   const start = (state.page - 1) * per;
 
-  const total = isBrowse ? OUTLETS.length : state.tab === 'coverage' ? COVERAGE.length : rows.length;
+  const total = (isBrowse || (state.tab === 'explorer' && state.exp === 'outlets'))
+    ? OUTLETS.length : COVERAGE.length;
   document.getElementById('count').innerHTML = rows.length === total
     ? '<strong>' + num(total) + '</strong> ' + label
     : 'Showing <strong>' + num(rows.length) + '</strong> of ' + num(total) + ' ' + label;
@@ -578,8 +588,10 @@ function render() {
     renderGrid(document.getElementById('cov-head'), document.getElementById('cov-body'),
                columnsOf(COVERAGE), rows, start, per);
   else {
-    document.getElementById('exp-count').innerHTML =
-      '<strong>' + num(rows.length) + '</strong> rows in the ' + state.exp + ' table';
+    document.getElementById('exp-count').innerHTML = (rows.length === total
+      ? '<strong>' + num(total) + '</strong> rows'
+      : 'Showing <strong>' + num(rows.length) + '</strong> of ' + num(total) + ' rows') +
+      ' in the ' + state.exp + ' table';
     document.querySelectorAll('#exp-toggle button').forEach(b =>
       b.setAttribute('aria-pressed', String(b.dataset.exp === state.exp)));
     renderGrid(document.getElementById('exp-head'), document.getElementById('exp-body'),
@@ -616,8 +628,8 @@ document.getElementById('export').addEventListener('click', () => {
   let cols, rows, what;
   if (state.tab === 'browse')        { cols = columnsOf(OUTLETS); rows = filteredOutlets();  what = 'outlets'; }
   else if (state.tab === 'coverage') { cols = columnsOf(COVERAGE); rows = filteredCoverage(); what = 'coverage records'; }
-  else if (state.exp === 'outlets')  { cols = columnsOf(OUTLETS); rows = OUTLETS;            what = 'outlets'; }
-  else                               { cols = columnsOf(COVERAGE); rows = COVERAGE;           what = 'coverage records'; }
+  else if (state.exp === 'outlets')  { cols = columnsOf(OUTLETS); rows = filteredOutlets();  what = 'outlets'; }
+  else                               { cols = columnsOf(COVERAGE); rows = filteredCoverage(); what = 'coverage records'; }
   document.getElementById('dlg-n').textContent = num(rows.length) + ' ' + what;
   document.getElementById('csv').value = toCSV(cols, rows);
   dlg.showModal();
