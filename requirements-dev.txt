@@ -4,7 +4,7 @@
 # in CI means "passes locally, fails in CI" — which is how the F811 that shadowed
 # Outlet.identity_key reached main.
 pytest==8.3.4
-pytest-django==4.9.0
+pytest-django==4.14.0
 pytest-cov==6.0.0
 ruff==0.15.22
 pre-commit==4.1.0
