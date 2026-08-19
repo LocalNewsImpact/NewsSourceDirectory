@@ -208,6 +208,29 @@ the crawler's role can no longer alter the directory database, and attempting it
 produces a *warning* rather than an error — which is easy to miss. `apply.sh`
 runs the second half as the `directory` role.
 
+## The read-only role
+
+`directory_ro` exists so the QA publish workflow can read the registry from a
+GitHub runner without being able to change it. A mistake in a workflow file
+cannot alter curated data — Postgres refuses, rather than our care being the
+thing that prevents it.
+
+```
+read  the registry   outlets: 2809, places: 231389
+write the registry   permission denied for table directory_outlet
+reach mizzou         permission denied for database "mizzou"
+```
+
+Its password is the `DB_RO_PASSWORD` repository secret. Created by
+`infra/sql/create_readonly_role.sql` and `grant_readonly.sql`, in that order and
+over two connections: role creation is cluster-wide and needs a
+cloudsqlsuperuser, while the grants must be made by `directory`, which owns the
+database.
+
+`ALTER DEFAULT PRIVILEGES` matters as much as the grants. Without it a table
+added by a future migration would be invisible to the publisher, and the feed
+would quietly lose a column instead of failing.
+
 ## Open decision: the feed bucket cannot be public
 
 The org enforces `constraints/iam.allowedPolicyMemberDomains`, restricted to

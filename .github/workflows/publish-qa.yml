@@ -1,0 +1,88 @@
+# Publish the registry to GitHub Pages for review.
+#
+# Pages rather than a bucket, deliberately: every publish is a commit, so a
+# reviewer can see *what changed* between one and the next — "this publish moved
+# four outlets" — and a bad one is revertable. For a hand-curated registry that
+# is worth more than the few pennies a bucket would cost.
+#
+# The runner reads the database directly through the Cloud SQL proxy as a
+# read-only role. It cannot write to the registry even if this workflow is
+# wrong.
+
+name: Publish QA feed
+
+on:
+  schedule:
+    - cron: "0 11 * * *"      # 06:00 Central, before anyone starts editing
+  workflow_dispatch:
+    inputs:
+      allow_errors:
+        description: "Publish despite data-quality errors"
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish-qa
+  cancel-in-progress: false
+
+permissions:
+  contents: write             # to commit the feed
+  id-token: write             # to mint the WIF token
+
+env:
+  PROJECT_ID: lnic-source-directory
+  SQL_INSTANCE: mizzou-news-crawler:us-central1:mizzou-db-prod
+
+jobs:
+  publish:
+    name: Build and commit the feed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/666766099662/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@lnic-source-directory.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Start the Cloud SQL proxy
+        run: |
+          curl -sL -o cloud-sql-proxy \
+            https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+          ./cloud-sql-proxy --port 5432 "$SQL_INSTANCE" &
+          for _ in $(seq 1 30); do nc -z 127.0.0.1 5432 && break; sleep 1; done
+
+      - name: Build the feed
+        env:
+          # A read-only role. The workflow cannot alter the registry.
+          DATABASE_URL: postgres://directory_ro:${{ secrets.DB_RO_PASSWORD }}@127.0.0.1:5432/directory
+          DJANGO_SECRET_KEY: publish-only
+        run: |
+          FLAGS=""
+          if [ "${{ inputs.allow_errors || 'true' }}" = "true" ]; then
+            FLAGS="--allow-errors"
+          fi
+          python manage.py publish --out docs-feed $FLAGS
+
+      - name: Commit it, if anything changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs-feed
+          if git diff --cached --quiet; then
+            # The build is content-hashed, so an unchanged registry produces
+            # identical files. Nothing to say.
+            echo "registry unchanged — nothing to publish"
+            exit 0
+          fi
+          git commit -m "Publish feed $(date -u +%Y-%m-%d)"
+          git push
