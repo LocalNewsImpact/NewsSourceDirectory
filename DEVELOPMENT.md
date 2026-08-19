@@ -50,9 +50,10 @@ Open questions worth settling before code depends on them:
 1. Create `lnic-source-directory` under the org, on the LNIC billing account.
 2. Enable: `run`, `sqladmin`, `artifactregistry`, `cloudbuild`, `iap`,
    `secretmanager`, `storage`, `cloudscheduler`.
-3. Cloud SQL: Postgres 16, Enterprise, `db-custom-1-3840`, **private IP**,
-   automated backups + point-in-time recovery. Back up the database; the bucket
-   needs none, since every byte in it is reproducible by rerunning `publish`.
+3. Database: a `directory` database and user on the crawler's existing
+   `mizzou-db-prod`, not a new instance. Backups are the crawler instance's
+   existing schedule; the feed needs none, since every byte in it is
+   reproducible by rerunning `publish`.
 4. Artifact Registry repository for the app image.
 5. GCS bucket, uniform access, public read on the `feed/` prefix only, CORS
    allowing the WordPress origin.

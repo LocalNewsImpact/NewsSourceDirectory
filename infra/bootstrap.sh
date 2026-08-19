@@ -22,8 +22,11 @@ REGION="${REGION:-us-central1}"
 
 BUCKET="${BUCKET:-${PROJECT_ID}-feed}"
 UPLOADS="${UPLOADS:-${PROJECT_ID}-uploads}"
-SQL_INSTANCE="${SQL_INSTANCE:-directory}"
-SQL_TIER="${SQL_TIER:-db-custom-1-3840}"
+# The database lives on the crawler's existing instance rather than a new one.
+# A dedicated instance would be ~$50/month for 2,000 rows; this is $0, and
+# db-g1-small already carries the crawler's production data.
+SQL_PROJECT="${SQL_PROJECT:-mizzou-news-crawler}"
+SQL_INSTANCE="${SQL_INSTANCE:-mizzou-db-prod}"
 DB_NAME="${DB_NAME:-directory}"
 DB_USER="${DB_USER:-directory}"
 REPO="${REPO:-app}"
@@ -232,37 +235,57 @@ stage_secrets() {
   done
 }
 
-# The only stage that starts meaningful billing: roughly $50/month.
+# Database on the crawler's shared instance. Creates only a database and a user;
+# it never touches the crawler's own database or roles.
 stage_sql() {
-  say "cloud sql ${SQL_INSTANCE} (${SQL_TIER})"
-  if have sql instances describe "$SQL_INSTANCE" --project="$PROJECT_ID"; then
-    echo "  exists"
+  say "database ${DB_NAME} on ${SQL_PROJECT}:${SQL_INSTANCE}"
+
+  if gcloud sql databases describe "$DB_NAME" \
+      --instance="$SQL_INSTANCE" --project="$SQL_PROJECT" >/dev/null 2>&1; then
+    echo "  database exists"
   else
-    gc sql instances create "$SQL_INSTANCE" \
-      --database-version=POSTGRES_16 \
-      --edition=enterprise \
-      --tier="$SQL_TIER" \
-      --region="$REGION" \
-      --storage-size=10GB --storage-type=SSD --storage-auto-increase \
-      --backup --backup-start-time=08:00 \
-      --enable-point-in-time-recovery \
-      --retained-backups-count=14 \
-      --maintenance-window-day=SUN --maintenance-window-hour=9
+    gcloud sql databases create "$DB_NAME" \
+      --instance="$SQL_INSTANCE" --project="$SQL_PROJECT"
   fi
 
-  have sql databases describe "$DB_NAME" --instance="$SQL_INSTANCE" --project="$PROJECT_ID" \
-    || gc sql databases create "$DB_NAME" --instance="$SQL_INSTANCE"
-
-  if ! gc sql users list --instance="$SQL_INSTANCE" --format='value(name)' | grep -qx "$DB_USER"; then
-    gc secrets versions access latest --secret=db-password \
-      | gc sql users create "$DB_USER" --instance="$SQL_INSTANCE" --password="$(cat)"
-    echo "  user ${DB_USER} created"
+  if gcloud sql users list --instance="$SQL_INSTANCE" --project="$SQL_PROJECT" \
+      --format='value(name)' | grep -qx "$DB_USER"; then
+    echo "  user exists"
+  else
+    local pw
+    pw="$(gc secrets versions access latest --secret=db-password)"
+    gcloud sql users create "$DB_USER" --instance="$SQL_INSTANCE" \
+      --project="$SQL_PROJECT" --password="$pw"
+    unset pw
   fi
+
+  # The runtime reaches across projects to connect. This is the only permission
+  # this project holds in the crawler's, and it grants nothing but connection.
+  gcloud projects add-iam-policy-binding "$SQL_PROJECT" \
+    --member="serviceAccount:${RUN_SA}" \
+    --role=roles/cloudsql.client --condition=None >/dev/null
+  echo "  ${RUN_SA} may connect"
+  echo
+  echo "  connection name: ${SQL_PROJECT}:${REGION}:${SQL_INSTANCE}"
+  echo
+  echo "  NOT YET DONE — Postgres grants CONNECT on every database to PUBLIC by"
+  echo "  default, so '${DB_USER}' can probably reach the crawler's database too."
+  echo "  Verify and close before this holds real data:"
+  echo "    REVOKE CONNECT ON DATABASE mizzou FROM PUBLIC;"
+  echo "    GRANT  CONNECT ON DATABASE mizzou TO mizzou_user;"
+  echo "  Run it with the crawler owners — it affects their instance, not just ours."
 }
 
-# Reserve the address early: the DNS record can then be created and propagate
-# while the rest is built, and a Google-managed certificate will not issue until
-# the hostname already resolves to this address.
+# ---------------------------------------------------------------------------
+# FALLBACK ONLY — not part of the default run.
+#
+# The admin is intended to reach directory.localnewsimpact.org through a Cloud
+# Run domain mapping, which is free. These stages build a load balancer instead,
+# at ~$18/month, and exist for the case where IAP turns out not to cover a
+# domain-mapped hostname and we want IAP rather than in-app Google auth.
+#
+# Reserve the address early: DNS can then propagate while the rest is built, and
+# a Google-managed certificate will not issue until the hostname resolves here.
 stage_lb_ip() {
   say "static address for ${ADMIN_HOST}"
   if have compute addresses describe "$LB_IP_NAME" --global --project="$PROJECT_ID"; then
@@ -328,12 +351,12 @@ stage_lb() {
   echo "  And enable IAP on the backend service, granting ${EDITORS}."
 }
 
-STAGES=(project apis iam storage registry wif secrets lb_ip)
+STAGES=(project apis iam storage registry wif secrets sql)
 
 main() {
   local requested=("$@")
   [[ ${#requested[@]} -eq 0 ]] && requested=("${STAGES[@]}")
-  [[ "${requested[0]:-}" == "all" ]] && requested=("${STAGES[@]}" sql lb)
+  [[ "${requested[0]:-}" == "all" ]] && requested=("${STAGES[@]}")
 
   for s in "${requested[@]}"; do
     "stage_${s}"
@@ -342,10 +365,7 @@ main() {
   say "done"
   echo "  project ${PROJECT_ID}  region ${REGION}"
   echo "  feed    https://storage.googleapis.com/${BUCKET}/feed/manifest.json"
-  if [[ ! " ${requested[*]} " =~ " sql " ]]; then
-    echo
-    echo "  Cloud SQL not created. It is ~\$50/month; run './infra/bootstrap.sh sql' when ready."
-  fi
+  echo "  database ${SQL_PROJECT}:${REGION}:${SQL_INSTANCE}/${DB_NAME}"
 }
 
 main "$@"

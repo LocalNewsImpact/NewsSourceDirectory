@@ -26,7 +26,7 @@ Workspace group --IAP--> Django admin (Cloud Run) --> Cloud SQL   [web project]
 
 | Layer | Choice | Why |
 |---|---|---|
-| Database | Postgres 16, Cloud SQL Enterprise, smallest **dedicated** core | Shared-core has no SLA; see [Sizing](#database-sizing) |
+| Database | `directory` database on the crawler's existing Cloud SQL | Reuse, not a second instance — saves ~$50/month |
 | Admin | Django 5.x + Gunicorn on Cloud Run | Inlines make the merge review tractable — see below |
 | Bulk edit | `django-import-export` | Reads the source `.xlsx`/`.csv` with a dry-run diff before commit |
 | Audit | `django-simple-history` | Per-field history and revert, essential during remediation |
@@ -332,20 +332,18 @@ so no human holds production write access.
 
 | Line item | Monthly |
 |---|---|
-| Cloud SQL Postgres `db-custom-1-3840` + 10GB SSD | ~$50 |
-| Load balancer for `directory.localnewsimpact.org` | ~$18 |
+| Database — `directory` on the crawler's `mizzou-db-prod` | **$0** |
+| Admin hostname — Cloud Run domain mapping, not a load balancer | **$0** |
 | Cloud Run (scale-to-zero) | $0–2 |
-| GCS storage and egress | ~$0.50 |
+| Feed hosting on AWS | ~$0.10 |
 | Artifact Registry, Secret Manager, logs | <$1 |
-| **Total** | **~$70** |
+| **Total** | **~$2–5** |
 
-Two of those are deliberate upgrades from the ~$15 first estimate: a dedicated
-core for the SLA rather than a shared core with none, and a load balancer to put
-the admin on a real hostname. Both are single variables in
-`infra/bootstrap.sh`.
-
-`min-instances=1` to remove Django cold starts adds ~$10. Cloud SQL HA roughly
-doubles the database line.
+An earlier draft of this design came to ~$70/month: a dedicated Cloud SQL core
+(~$50) and a load balancer for the admin hostname (~$18). Both were bought
+rather than borrowed. The crawler project already runs a Postgres 16 instance in
+us-central1, and a Cloud Run domain mapping provides a custom hostname for
+nothing — so neither charge was buying anything this project actually needed.
 
 ## Security notes
 
