@@ -91,19 +91,33 @@ jobs:
           fi
           python manage.py publish --out data $FLAGS
 
-      - name: Commit it, if anything changed
+      - name: Publish to the gh-pages branch
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data
-          if git diff --cached --quiet; then
-            # The build is content-hashed, so an unchanged registry produces
-            # identical files. Nothing to say.
-            echo "registry unchanged — nothing to publish"
-            exit 0
-          fi
-          git commit -m "Publish feed $(date -u +%Y-%m-%d) (${{ github.event_name }})"
-          # main is protected and this is a bot, so push only what it wrote:
-          # a rebase keeps it from failing when a merge landed mid-run.
-          git pull --rebase --autostash
-          git push
+
+          # A separate branch rather than main. main is protected — a pull
+          # request is required and nothing may bypass it — and a bot cannot
+          # open and approve its own. Publishing here keeps that protection
+          # intact while still giving every publish a commit and a diff.
+          SITE="$(mktemp -d)"
+          git worktree add "$SITE" --detach
+
+          cd "$SITE"
+          git checkout --orphan gh-pages-new
+          git rm -rq --cached . 2>/dev/null || true
+          find . -maxdepth 1 ! -name . ! -name .git -exec rm -rf {} +
+
+          # What Pages serves: the QA page and the feed it reads.
+          cp -r "$GITHUB_WORKSPACE/mockup" ./mockup
+          cp -r "$GITHUB_WORKSPACE/data"   ./data
+          cp "$GITHUB_WORKSPACE/index.html" ./index.html 2>/dev/null || true
+          touch .nojekyll
+
+          git add -A
+          git commit -q -m "Publish feed $(date -u +%Y-%m-%dT%H:%MZ) (${{ github.event_name }})"
+
+          # Fast-forward is impossible against an orphan, so the branch is
+          # replaced. Its history is a log of publishes, not of the project.
+          git push -f origin HEAD:gh-pages
+          echo "published to gh-pages"
