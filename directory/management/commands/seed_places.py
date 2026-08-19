@@ -28,7 +28,10 @@ from __future__ import annotations
 
 import csv
 import io
+import shutil
+import tempfile
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -77,11 +80,12 @@ class Command(BaseCommand):
         if not states:
             raise CommandError("no states — run seed_vocabularies first")
 
-        rows = self._read(options["file"], options["url"], wanted)
-        self.stdout.write(f"{len(rows)} populated places and civil divisions")
+        rows = self._rows(options["file"], options["url"], wanted)
 
         if options["dry_run"]:
-            for row in rows[:5]:
+            for i, row in enumerate(rows):
+                if i >= 5:
+                    break
                 self.stdout.write(
                     f"    {row['name'][:30]:32s} {row['state_name'][:14]:16s} "
                     f"{row['feature_class']:16s} gnis={row['gnis']}"
@@ -99,78 +103,110 @@ class Command(BaseCommand):
 
     # -- reading -------------------------------------------------------------
 
-    def _read(self, path: str, url: str | None, wanted: set[str]) -> list[dict]:
-        if url:
-            self.stdout.write(f"downloading {url}")
-            with urlopen(url) as response:  # noqa: S310 — a known USGS URL
-                raw = response.read()
-        else:
-            p = Path(path)
-            if not p.exists():
-                raise CommandError(f"no such file: {p}")
-            raw = p.read_bytes()
+    def _rows(self, path: str, url: str | None, wanted: set[str]) -> Iterator[dict]:
+        """Yield rows one at a time, never holding the file in memory.
 
-        if raw[:2] == b"PK":
-            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-                name = next((n for n in archive.namelist() if n.lower().endswith(".txt")), "")
-                if not name:
-                    raise CommandError("no .txt inside the archive")
-                text = archive.read(name).decode("utf-8", errors="replace")
-        else:
-            text = raw.decode("utf-8", errors="replace")
+        The first production run was killed by the OOM killer: reading the 37MB
+        archive into memory, expanding it to a 147MB string and building a list
+        of 256,114 dicts needs far more than a Cloud Run job's default 512Mi.
+        Locally it passed, because a laptop does not care.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp) / "gnis"
+            if url:
+                self.stdout.write(f"downloading {url}")
+                with urlopen(url) as response, local.open("wb") as out:  # noqa: S310
+                    shutil.copyfileobj(response, out)
+            else:
+                source = Path(path)
+                if not source.exists():
+                    raise CommandError(f"no such file: {source}")
+                local = source
 
-        reader = csv.DictReader(io.StringIO(text), delimiter="|")
+            with local.open("rb") as probe:
+                is_zip = probe.read(2) == b"PK"
+
+            if is_zip:
+                with zipfile.ZipFile(local) as archive:
+                    name = next((n for n in archive.namelist() if n.lower().endswith(".txt")), "")
+                    if not name:
+                        raise CommandError("no .txt inside the archive")
+                    with archive.open(name) as raw:
+                        yield from self._parse(
+                            io.TextIOWrapper(raw, "utf-8", errors="replace"), wanted
+                        )
+            else:
+                with local.open(encoding="utf-8", errors="replace") as handle:
+                    yield from self._parse(handle, wanted)
+
+    def _parse(self, handle, wanted: set[str]) -> Iterator[dict]:
+        reader = csv.DictReader(handle, delimiter="|")
         # The real header is lowercase and starts with a BOM.
-        reader.fieldnames = [f.lstrip("﻿").strip().lower() for f in reader.fieldnames or []]
+        reader.fieldnames = [f.lstrip("\ufeff").strip().lower() for f in reader.fieldnames or []]
         if "feature_id" not in (reader.fieldnames or []):
             raise CommandError(
                 f"unexpected columns: {', '.join((reader.fieldnames or [])[:6])}. "
                 "Expected the USGS Domestic Names file."
             )
 
-        out = []
         for row in reader:
             if row.get("feature_class") not in FEATURE_CLASSES:
                 continue
             state_name = (row.get("state_name") or "").strip()
             if wanted and state_name.lower() not in wanted:
                 continue
-            out.append(
-                {
-                    "gnis": (row.get("feature_id") or "").strip(),
-                    "name": (row.get("feature_name") or "").strip(),
-                    "state_name": state_name,
-                    "state_fips": (row.get("state_numeric") or "").strip(),
-                    "county_fips": (row.get("county_numeric") or "").strip(),
-                    "county_name": (row.get("county_name") or "").strip(),
-                    "feature_class": row.get("feature_class", ""),
-                    "kind": CLASS_TO_KIND.get(row.get("feature_class"), Place.Kind.CITY),
-                }
-            )
-        return out
+            yield {
+                "gnis": (row.get("feature_id") or "").strip(),
+                "name": (row.get("feature_name") or "").strip(),
+                "state_name": state_name,
+                "state_fips": (row.get("state_numeric") or "").strip(),
+                "county_fips": (row.get("county_numeric") or "").strip(),
+                "county_name": (row.get("county_name") or "").strip(),
+                "feature_class": row.get("feature_class", ""),
+                "kind": CLASS_TO_KIND.get(row.get("feature_class"), Place.Kind.CITY),
+            }
 
     # -- seeding -------------------------------------------------------------
 
-    def _seed(self, rows: list[dict], states: dict) -> int:
+    BATCH = 5000
+
+    def _seed(self, rows, states: dict) -> int:
+        """Insert in batches, holding at most BATCH objects at a time."""
         known = set(Place.objects.exclude(gnis="").values_list("gnis", flat=True))
-        fresh = [
-            Place(
-                name=r["name"],
-                kind=r["kind"],
-                state=states.get(r["state_name"].lower()),
-                gnis=r["gnis"],
-                state_fips=r["state_fips"],
-                county_fips=r["county_fips"],
-                county_name=r["county_name"],
-                feature_class=r["feature_class"],
-                seeded_from_gnis=True,
+        batch: list[Place] = []
+        created = seen = 0
+
+        def flush():
+            nonlocal batch
+            if batch:
+                Place.objects.bulk_create(batch, batch_size=1000, ignore_conflicts=True)
+                batch = []
+
+        for r in rows:
+            seen += 1
+            if not (r["gnis"] and r["name"]) or r["gnis"] in known:
+                continue
+            known.add(r["gnis"])
+            batch.append(
+                Place(
+                    name=r["name"],
+                    kind=r["kind"],
+                    state=states.get(r["state_name"].lower()),
+                    gnis=r["gnis"],
+                    state_fips=r["state_fips"],
+                    county_fips=r["county_fips"],
+                    county_name=r["county_name"],
+                    feature_class=r["feature_class"],
+                    seeded_from_gnis=True,
+                )
             )
-            for r in rows
-            if r["gnis"] and r["name"] and r["gnis"] not in known
-        ]
-        with transaction.atomic():
-            Place.objects.bulk_create(fresh, batch_size=2000, ignore_conflicts=True)
-        return len(fresh)
+            created += 1
+            if len(batch) >= self.BATCH:
+                flush()
+        flush()
+
+        self.stdout.write(f"{seen} populated places and civil divisions read")
+        return created
 
     # -- linking -------------------------------------------------------------
 

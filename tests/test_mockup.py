@@ -5,7 +5,6 @@ is a broken public page. These checks are fast and need no browser; a real
 browser smoke test belongs with the widget once it exists.
 """
 
-import json
 import re
 from pathlib import Path
 
@@ -20,10 +19,8 @@ def html() -> str:
 
 
 @pytest.fixture(scope="module")
-def seed(html: str) -> dict:
-    m = re.search(r'<script id="seed" type="application/json">(.*?)</script>', html, re.S)
-    assert m, "seed payload not found"
-    return json.loads(m.group(1))
+def script(html: str) -> str:
+    return html.split("<script>")[-1]
 
 
 def test_is_a_standalone_document(html):
@@ -38,11 +35,19 @@ def test_declares_charset_and_viewport(html):
     assert re.search(r'<meta\s+name=["\']viewport["\']', html, re.I)
 
 
-def test_script_body_is_ascii_only(html):
-    """No charset is guaranteed downstream; a literal en dash mojibakes."""
-    body = html.split('<script id="seed"')[0]
-    non_ascii = sorted({c for c in body if ord(c) > 127})
-    assert not non_ascii, f"non-ASCII outside the data payload: {non_ascii}"
+def test_the_charset_is_declared_before_any_text(html):
+    """An en dash in the page mojibakes if the encoding is guessed rather than
+    declared, and browsers only look at the first 1024 bytes for it.
+
+    This replaces an earlier rule that banned non-ASCII outright. That was a
+    workaround for the page being served as a fragment with no charset of its
+    own; now that it is a standalone document, declaring the encoding is the
+    real fix and prose can use real punctuation.
+    """
+    head = html[:1024]
+    assert re.search(r'<meta\s+charset=["\']?utf-8', head, re.I), (
+        "charset must appear in the first 1024 bytes"
+    )
 
 
 def test_no_external_requests_except_google_fonts(html):
@@ -54,33 +59,41 @@ def test_no_external_requests_except_google_fonts(html):
     assert not assets, f"mockup pulls external assets: {assets}"
 
 
-# --- the payload -------------------------------------------------------------
+# --- it reads the feed rather than carrying a copy ---
 
 
-def test_payload_shape(seed):
-    assert set(seed) == {"ocols", "ccols", "outlets", "coverage"}
-    assert seed["outlets"] and seed["coverage"]
+def test_no_data_is_embedded(html):
+    """A snapshot in the page goes stale the moment anyone edits the registry,
+    and silently — the page keeps working and keeps being wrong."""
+    assert 'id="seed"' not in html
+    assert len(html) < 200_000, "the page should be code, not data"
 
 
-def test_every_row_matches_its_column_list(seed):
-    for key, cols in (("outlets", "ocols"), ("coverage", "ccols")):
-        width = len(seed[cols])
-        bad = [i for i, row in enumerate(seed[key]) if len(row) != width]
-        assert not bad, f"{key} rows with wrong width: {bad[:5]}"
+def test_it_fetches_the_manifest_first(script):
+    """The manifest is small and revalidated; the files it names are
+    content-hashed and cached forever."""
+    assert "manifest.json" in script
+    assert "MANIFEST.files.sites.path" in script
 
 
-def test_payload_carries_no_admin_only_columns(seed):
-    """The mockup stands in for the public export; it must not leak admin fields."""
-    forbidden = {"paused_reason", "status", "needs_review", "review_note"}
-    assert not forbidden & set(seed["ocols"])
+def test_coverage_is_fetched_only_when_needed(script):
+    """It is roughly fifty times the outlet feed. Most visitors never open a
+    view that needs it."""
+    assert "loadCoverage" in script
+    assert "coverageLoaded" in script
 
 
-def test_coverage_rows_reference_known_outlets(seed):
-    oid = seed["ocols"].index("outlet_id")
-    cid = seed["ccols"].index("outlet_id")
-    known = {row[oid] for row in seed["outlets"]}
-    orphans = {row[cid] for row in seed["coverage"]} - known
-    assert not orphans, f"coverage rows with no outlet: {sorted(orphans)[:5]}"
+def test_the_browse_view_needs_only_the_outlet_feed(script):
+    """Every facet reads the outlet rows, so filtering works before — or
+    without — the coverage file arriving."""
+    assert "OUTLETS.flatMap(o => multi(o.states))" in script
+    assert "OUTLETS.flatMap(o => multi(o.source_files))" in script
+
+
+def test_a_missing_feed_says_so(script):
+    """Rather than rendering an empty directory that looks like real data."""
+    assert "showProblem" in script
+    assert "No feed published yet" in script
 
 
 # --- every prototype feature is still wired up -------------------------------
