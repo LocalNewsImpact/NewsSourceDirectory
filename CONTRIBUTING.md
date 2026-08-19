@@ -2,48 +2,129 @@
 
 ## Getting a local environment
 
+### Prerequisites
+
+| | Version | Why |
+|---|---|---|
+| Python | 3.11 or later | `requires-python = ">=3.11"` in `pyproject.toml` |
+| Docker | any current release | runs Postgres 16; nothing else needs it |
+| Node | 22 | matches the version CI pins; the only package is `minisearch`, used to build the search index |
+
+No GCP access, no credentials and no network data source are required. The whole
+project runs locally against the fixtures in `tests/fixtures/`.
+
+```bash
+python3 --version && docker --version && node --version
+```
+
+### Setup
+
 ```bash
 git clone https://github.com/LocalNewsImpact/NewsSourceDirectory.git
 cd NewsSourceDirectory
 make setup
 ```
 
-`make setup` creates a virtualenv, installs dependencies, writes `.env` from
-`.env.example`, installs the Node packages, and starts Postgres in Docker on port
-5434. It is safe to rerun.
+`make setup` creates the virtualenv, installs Python and Node dependencies,
+writes `.env` from `.env.example`, starts Postgres in Docker on port 5434,
+applies the migrations, and seeds the controlled vocabularies. It takes about
+90 seconds on a first run and is safe to rerun — each step is skipped if it is
+already done.
 
-You need Python 3.11+, Docker, and Node 22+. Nothing else, and no GCP access —
-the whole project runs locally against fixtures.
+Seeding the vocabularies is not optional dressing. Empty dropdowns are how the
+source data acquired "Public Broadcasting" beside "Public Broadcast".
 
-```bash
-make run       # the admin at http://localhost:8000/admin/
-make superuser # a login for it
-make check     # everything CI runs
-make test      # unit tests, no database
-make fmt       # apply formatting and safe fixes
-make help      # all targets
+It has finished when it prints:
+
+```
+Ready. 'make run' starts the admin, 'make check' runs what CI runs.
 ```
 
-`make setup` migrates and seeds the controlled vocabularies, so the dropdowns are
-populated on a fresh checkout. Seeding them matters: empty dropdowns are how the
-source data ended up with "Public Broadcasting" beside "Public Broadcast".
+### Confirm the checkout works
 
-Port 5434 is deliberate: 5432 is usually a system Postgres and 5433 belongs to
-the crawler's test container, so this will not collide with other work.
+```bash
+make check
+```
+
+Expect lint clean, then **163 unit tests** and **118 integration tests** passing,
+in roughly 15 seconds. Anything less means the environment is wrong rather than
+the code.
+
+### Run it
+
+```bash
+make superuser   # once, to create a login
+make run         # http://localhost:8000/admin/
+```
+
+Sign-in falls back to a normal Django login: `.env.example` leaves
+`GOOGLE_OAUTH_CLIENT_ID` blank, so no OAuth credentials are needed to work on the
+admin. Google sign-in is used in deployed environments only.
+
+### Getting data into it
+
+A fresh database has the vocabularies and nothing else. The admin is empty until
+something is imported.
+
+```bash
+# the committed sample — small, fast, enough to exercise the admin
+.venv/bin/python manage.py import_source tests/fixtures/coverage_sample.csv
+.venv/bin/python manage.py rebuild_outlets
+```
+
+`import_source` accepts a path or an https URL, `.csv` or `.xlsx`, and takes
+`--dry-run` and `--limit`. It writes `CoverageRecord` rows and nothing else;
+`rebuild_outlets` is what derives `Outlet` from them. Running the two in that
+order is the whole import path, and it is how production is loaded as well.
+
+Places are separate and optional locally. `seed_places` reads the GNIS national
+file, which is large; `--states Missouri` keeps it manageable, and `--url`
+downloads the file rather than requiring a local copy.
+
+### Ports
+
+Postgres is published on **5434**, deliberately: 5432 is usually a system
+Postgres and 5433 belongs to the crawler's test container, so a checkout of this
+project will not collide with either.
+
+The port appears in `docker-compose.yml` and in `DATABASE_URL` in `.env`. Change
+both together if 5434 is taken on your machine.
+
+**Two checkouts share one database.** The container is pinned to
+`container_name: nsd-postgres` and Compose derives its project name from the
+directory, so a second clone in a directory of the same name attaches to the
+running container and its volume rather than creating its own. Nothing warns you.
+An import run from one checkout appears in the other, and `make db-reset` in
+either destroys both. Give the second clone a different directory name, or a
+different `container_name` and port, if the two need separate data.
+
+### When something fails
+
+| Symptom | Cause |
+|---|---|
+| `make setup` hangs at `db-up` | Docker is not running. The wait loop has no timeout and will sit there. |
+| `Bind for 0.0.0.0:5434 failed` | Something already holds the port — often another checkout of this project. `docker ps` will name it. |
+| `connection refused` on 5434 | The container is stopped. `make db-up`. |
+| Integration tests fail, unit tests pass | Postgres is unreachable, not a code fault. The split exists so `make test` stays green before Docker is working. |
+| Migrations conflict after switching branches | `make db-reset` destroys the volume and rebuilds. Local data is not precious. |
+
+`make db-down` stops Postgres and keeps the data. `make db-reset` deletes it.
+`make clean` removes build and cache artefacts and touches nothing else.
 
 ## Tests
 
-**Unit** tests need nothing. They cover the data-quality rules, the identity
-rule, the feed builder, and the mockup's structure.
+**Unit** tests need nothing but the virtualenv. They cover the data-quality
+rules, the identity rule, the feed builder, and the mockup's structure.
 
 **Integration** tests are marked `@pytest.mark.integration` and need Postgres:
 
 ```bash
+make test          # unit only
 make test-integration
+make check         # lint, format check, and both suites — what CI runs
 ```
 
-The split exists so a new contributor gets a green `make test` before Docker is
-working. CI runs both on every branch.
+CI runs both on every branch, not only on pull requests.
 
 ## The workflow
 
