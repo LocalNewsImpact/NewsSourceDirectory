@@ -13,11 +13,13 @@ from django.db.models import Count
 from import_export.admin import ImportExportModelAdmin
 from simple_history.admin import SimpleHistoryAdmin
 
+from directory import dashboard
 from directory.identity import identity_key, registrable_domain, slugify
 from directory.models import (
     Category,
     Collection,
     CoverageRecord,
+    DataQualityIssue,
     Medium,
     Outlet,
     OutletPlace,
@@ -27,6 +29,32 @@ from directory.models import (
     State,
 )
 from directory.publishing import PublishError, request_publish
+
+
+def _dashboard_index(request, extra_context=None):
+    """Put the review summary on the admin index.
+
+    Patching the default site rather than substituting a custom AdminSite:
+    every ModelAdmin here registers against the default, and swapping the site
+    would mean re-registering all of them and rewriting every /admin/ URL that
+    already exists in links and bookmarks.
+    """
+    latest = DataQualityIssue.objects.order_by("-detected_at").first()
+    return _original_index(
+        request,
+        {
+            **(extra_context or {}),
+            "review_tiles": dashboard.review_tiles(),
+            "quality_tiles": dashboard.quality_tiles(),
+            "registry_tiles": dashboard.registry_tiles(),
+            "unserved": dashboard.unserved_places(),
+            "quality_checked": latest.detected_at if latest else None,
+        },
+    )
+
+
+_original_index = admin.site.index
+admin.site.index = _dashboard_index
 
 
 class DistinctNameFilter(admin.SimpleListFilter):
@@ -104,7 +132,13 @@ class OutletAdmin(ImportExportModelAdmin, SimpleHistoryAdmin):
     inlines = (OutletPlaceInline, CoverageInline)
     readonly_fields = ("identity_key", "record_count", "source_count", "created_at", "updated_at")
     list_select_related = ("medium", "state", "owner")
-    actions = ("split_by_name", "mark_reviewed", "flag_for_review", "publish_feed")
+    actions = (
+        "split_by_name",
+        "merge_selected",
+        "mark_reviewed",
+        "flag_for_review",
+        "publish_feed",
+    )
     fieldsets = (
         (None, {"fields": ("name", "canonical_url", "domain", "identity_key", "status")}),
         ("Classification", {"fields": ("medium", "categories", "owner")}),
@@ -195,6 +229,50 @@ class OutletAdmin(ImportExportModelAdmin, SimpleHistoryAdmin):
                 messages.INFO,
             )
 
+    @admin.action(description="Merge: fold the selected outlets into the oldest")
+    def merge_selected(self, request, queryset):
+        """Combine outlets that are one masthead recorded several ways.
+
+        The counterpart to splitting. Reviewing a bad merge often means
+        splitting it and then recombining the pieces that were the same paper
+        written differently, and without this that means reassigning coverage
+        records by hand.
+
+        The survivor is the earliest-created outlet, so repeating the action on
+        the same selection is stable. Coverage moves rather than being copied,
+        and the absorbed outlets are deleted only after their evidence has been
+        reassigned — a merge loses nothing.
+        """
+        outlets = list(queryset.order_by("created_at"))
+        if len(outlets) < 2:
+            self.message_user(request, "Select two or more outlets to merge.", messages.WARNING)
+            return
+
+        survivor, absorbed = outlets[0], outlets[1:]
+        moved = 0
+        with transaction.atomic():
+            for other in absorbed:
+                moved += CoverageRecord.objects.filter(outlet=other).update(outlet=survivor)
+                OutletPlace.objects.filter(outlet=other).exclude(
+                    place__in=survivor.places.all()
+                ).update(outlet=survivor)
+                other.delete()
+
+            survivor.record_count = survivor.coverage.count()
+            survivor.source_count = survivor.coverage.values("source_file").distinct().count()
+            survivor.needs_review = False
+            survivor.review_note = f"Merged {len(absorbed)} outlet(s) in: " + ", ".join(
+                o.name for o in absorbed
+            )
+            survivor.save()
+
+        self.message_user(
+            request,
+            f"Merged {len(absorbed)} outlet(s) into {survivor.name}; "
+            f"{moved} coverage record(s) moved.",
+            messages.SUCCESS,
+        )
+
     @admin.action(description="Publish the public feed now")
     def publish_feed(self, request, queryset):
         """Ask GitHub to rebuild the feed.
@@ -260,6 +338,9 @@ class OwnerAdmin(SimpleHistoryAdmin):
 
 @admin.register(Place)
 class PlaceAdmin(admin.ModelAdmin):
+    # 231,389 rows. Faceted counts and unindexed search would make the
+    # changelist unusable, so search is restricted to indexed columns.
+    show_facets = admin.ShowFacets.NEVER
     list_display = ("name", "kind", "state", "gnis", "outlet_count", "seeded_from_gnis")
     list_filter = ("kind", "state", "seeded_from_gnis")
     search_fields = ("name", "gnis", "mun_id")
@@ -307,3 +388,40 @@ class CategoryAdmin(admin.ModelAdmin):
 class StateAdmin(admin.ModelAdmin):
     list_display = ("name", "code")
     search_fields = ("name", "code")
+
+
+@admin.register(DataQualityIssue)
+class DataQualityIssueAdmin(admin.ModelAdmin):
+    """What the rules found, so cleaning is driven by the same checks that gate
+    publishing rather than by memory."""
+
+    list_display = ("rule", "severity", "message", "outlet", "detected_at")
+    list_filter = ("severity", "rule")
+    search_fields = ("message", "row_id", "outlet__name")
+    list_select_related = ("outlet",)
+    readonly_fields = ("rule", "severity", "message", "outlet", "row_id", "detected_at")
+
+    def has_add_permission(self, request):
+        # Written by check_data. Adding one by hand would be a note, not a finding.
+        return False
+
+
+@admin.register(OutletPlace)
+class OutletPlaceAdmin(admin.ModelAdmin):
+    """Place links, so the ones inferred from a name can be confirmed.
+
+    Only New Jersey carries GNIS ids; every other link was matched on text and
+    is a guess until someone looks.
+    """
+
+    list_display = ("outlet", "place", "match_method", "needs_review", "asserted_by")
+    list_filter = ("match_method", "needs_review")
+    search_fields = ("outlet__name", "place__name")
+    autocomplete_fields = ("outlet", "place")
+    list_select_related = ("outlet", "place")
+    actions = ("confirm_links",)
+
+    @admin.action(description="Confirm: these places are correct")
+    def confirm_links(self, request, queryset):
+        n = queryset.update(needs_review=False, match_method=OutletPlace.MatchMethod.MANUAL)
+        self.message_user(request, f"{n} link(s) confirmed.", messages.SUCCESS)
