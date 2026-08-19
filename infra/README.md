@@ -93,6 +93,29 @@ Route 53 holds `localnewsimpact.org`, with a `*` A record on the WordPress host
 (50.16.132.48). A record for an exact name beats the wildcard, so no wildcard
 change is needed for either the admin hostname or the feed.
 
+## How the service reaches the database
+
+Cloud Run connects to Cloud SQL through a **unix socket** at
+`/cloudsql/<connection name>`, not a host and port. The deploy therefore passes
+`CLOUD_SQL_CONNECTION_NAME` and the service assembles its own DSN in
+`config/db.py`.
+
+Passing a `DATABASE_URL` instead does not fail loudly — it points the deployed
+service at its own localhost, and the first real deploy did exactly that:
+
+```
+Is the server running on that host and accepting TCP/IP connections?
+```
+
+Two consequences worth keeping:
+
+- The password reaches the container as `DB_PASSWORD` from Secret Manager and is
+  never assembled into a URL, so it does not appear in a deploy command or a
+  revision's environment as part of a longer string.
+- `gcloud run deploy --set-env-vars` **replaces** the whole environment. Two of
+  those flags on one command silently discards the first, so there is exactly one
+  per command in `deploy.yml`.
+
 ## Database isolation
 
 The directory shares the crawler's instance but must not be able to reach its

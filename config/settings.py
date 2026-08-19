@@ -7,7 +7,7 @@ ROOT_URLCONF and database role, not by codebase — see docs/auth.md.
 import os
 from pathlib import Path
 
-import dj_database_url
+from config.db import database_config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -78,15 +78,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get(
-            "DATABASE_URL", "postgres://directory:directory@localhost:5434/directory"
-        ),
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+DATABASES = {"default": database_config(os.environ)}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": f"django.contrib.auth.password_validation.{v}"}
