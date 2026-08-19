@@ -16,11 +16,17 @@ You need Python 3.11+, Docker, and Node 22+. Nothing else, and no GCP access —
 the whole project runs locally against fixtures.
 
 ```bash
+make run       # the admin at http://localhost:8000/admin/
+make superuser # a login for it
 make check     # everything CI runs
 make test      # unit tests, no database
 make fmt       # apply formatting and safe fixes
 make help      # all targets
 ```
+
+`make setup` migrates and seeds the controlled vocabularies, so the dropdowns are
+populated on a fresh checkout. Seeding them matters: empty dropdowns are how the
+source data ended up with "Public Broadcasting" beside "Public Broadcast".
 
 Port 5434 is deliberate: 5432 is usually a system Postgres and 5433 belongs to
 the crawler's test container, so this will not collide with other work.
@@ -103,7 +109,8 @@ Upgrade by changing the pin in one place, in its own pull request.
 |---|---|
 | `checks/` | data-quality rules, run in CI and by `publish` |
 | `feed/` | the public static feed builder |
-| `schema/` | draft models and the outlet identity rule |
+| `directory/` | the Django app — models, admin, auth, identity rule |
+| `config/` | settings and the two URLconfs, one per front end |
 | `infra/` | `bootstrap.sh` — the GCP project, idempotent |
 | `mockup/` | the working UI prototype, served on GitHub Pages |
 | `docs/` | auth design, schema decisions |

@@ -36,8 +36,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install the pinned pytest
-        run: pip install "$(grep -oE '^pytest==[0-9.]+' requirements-dev.txt)"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
       - name: Unit tests
         run: python -m pytest -m "not integration"
 
@@ -62,8 +63,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install the pinned pytest
-        run: pip install "$(grep -oE '^pytest==[0-9.]+' requirements-dev.txt)" "psycopg[binary]>=3.2"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Migrations are complete and committed
+        run: python manage.py makemigrations --check --dry-run
       - name: Integration tests
         run: python -m pytest -m integration
 
@@ -174,6 +178,32 @@ jobs:
               raise SystemExit(1)
           print("reproducible:", b["files"]["sites"]["sha256"][:12])
           PY
+
+  image:
+    name: Image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the deployment image
+        run: docker build -t news-source-directory .
+      - name: It starts and answers, without a database
+        run: |
+          docker run -d --name smoke -p 8080:8080 \
+            -e DJANGO_SECRET_KEY=ci -e DJANGO_ALLOWED_HOSTS='*' \
+            -e DATABASE_URL='postgres://nobody:nobody@127.0.0.1:1/none' \
+            news-source-directory
+          for _ in $(seq 1 20); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz || true)"
+            [ -n "$code" ] && [ "$code" != "000" ] && break
+            sleep 2
+          done
+          echo "healthz -> $code"
+          docker logs smoke | tail -20
+          # 503 is the correct answer with no database: the service is up and
+          # honest about being unable to serve. 200 here would mean the health
+          # check is not actually checking anything.
+          [ "$code" = "503" ] || { echo "::error::expected 503, got $code"; exit 1; }
+          docker rm -f smoke
 
   pages:
     name: Pages payload

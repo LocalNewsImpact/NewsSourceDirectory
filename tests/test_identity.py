@@ -2,7 +2,7 @@
 
 import pytest
 
-from schema.identity import identity_key, registrable_domain, slugify
+from directory.identity import identity_key, registrable_domain, slugify
 
 
 class TestRegistrableDomain:
