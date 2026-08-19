@@ -1,0 +1,15 @@
+{% extends "base_auth.html" %}
+{% block title %}No public signup — News Source Directory{% endblock %}
+{% block content %}
+  {# allauth links here from its own pages. There is no self-service signup:
+     accounts are created by an administrator and matched to a Google identity
+     on first sign-in. Without this template the default form appears and
+     invites people to create an account that will not work. #}
+  <h1>Accounts are created by an administrator</h1>
+  <p class="sub">There is no self-service signup.</p>
+  <p>
+    Directory accounts are added by an administrator and limited to
+    <strong>{{ allowed_domain }}</strong> addresses.
+  </p>
+  <p class="note"><a href="/accounts/login/">Back to sign in</a></p>
+{% endblock %}
