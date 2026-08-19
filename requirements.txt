@@ -10,8 +10,11 @@ dj-database-url>=2.3
 # The admin is most of the application.
 django-import-export>=4.3      # bulk CSV/xlsx with a dry-run diff
 django-simple-history>=3.8     # per-field history and revert
-django-allauth>=65.3           # Google sign-in, domain-checked server-side
-requests>=2.32                 # allauth's Google provider imports it directly
+# The [socialaccount] extra, not the bare package. The Google provider needs
+# requests and PyJWT[crypto] to verify the ID token signature, and neither is a
+# dependency of django-allauth itself. Declaring them one production crash at a
+# time is how this was discovered twice.
+django-allauth[socialaccount]>=65.3
 
 # Import pipeline.
 pandas>=2.2

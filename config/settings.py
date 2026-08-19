@@ -111,6 +111,8 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
 LOGIN_REDIRECT_URL = "/admin/"
+# Anything requiring a login goes to allauth's page, not the admin form.
+LOGIN_URL = "/accounts/login/"
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*"]
 SOCIALACCOUNT_ADAPTER = "directory.auth.DomainRestrictedAdapter"
