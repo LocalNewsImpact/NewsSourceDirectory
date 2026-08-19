@@ -103,6 +103,27 @@ Upgrade by changing the pin in one place, in its own pull request.
   why in the PR — do not quiet it.
 - **Committing `.env`, credentials, or `dist/`.** All are gitignored.
 
+## Running something against production
+
+```bash
+./infra/manage.sh ensure_admin matt@localnewsimpact.org someone@localnewsimpact.org
+./infra/manage.sh rebuild_outlets
+./infra/manage.sh seed_places --url --link
+```
+
+It runs the command inside Cloud Run **using the image currently serving**, so
+the code is exactly what production is running and nothing needs installing
+locally. Your machine never connects to the database; only your gcloud
+credentials are used, and the database has no public route to reach anyway.
+
+Expect roughly three minutes — most of it is Cloud Run creating the job and
+starting a container. The command's own output is printed at the end.
+
+Two things it handles that are easy to get wrong by hand: Cloud Run splits
+arguments on commas, which breaks on URLs, and it bakes them into the job
+definition rather than accepting them at execution time, so the job has to be
+redeployed for each different command.
+
 ## Where things are
 
 | Path | What |

@@ -9,6 +9,15 @@ creates, so rerunning is safe and reading it tells you what exists.
 ./infra/bootstrap.sh lb_ip lb         # fallback only — see "Admin hostname"
 ```
 
+## Running a management command against production
+
+```bash
+./infra/manage.sh <command> [args...]
+```
+
+Uses the image the service is currently running, so there is no risk of
+executing code that is not deployed.
+
 ## What exists
 
 | | |
