@@ -208,9 +208,9 @@ textarea{width:100%;height:220px;font-family:'Courier New',monospace;font-size:1
   </div>
 
   <div class="tabs" role="tablist">
-    <button role="tab" id="tab-browse" aria-selected="true" aria-controls="panel-browse">Browse outlets</button>
+    <button role="tab" id="tab-explorer" aria-selected="true" aria-controls="panel-explorer">Data explorer</button>
+    <button role="tab" id="tab-browse" aria-selected="false" aria-controls="panel-browse">Browse outlets</button>
     <button role="tab" id="tab-coverage" aria-selected="false" aria-controls="panel-coverage">Coverage records</button>
-    <button role="tab" id="tab-explorer" aria-selected="false" aria-controls="panel-explorer">Data explorer</button>
   </div>
 
   <div class="controls">
@@ -235,17 +235,7 @@ textarea{width:100%;height:220px;font-family:'Courier New',monospace;font-size:1
     <button class="btn btn-primary" id="export" type="button">Export CSV</button>
   </div>
 
-  <section class="panel" id="panel-browse" role="tabpanel" aria-labelledby="tab-browse">
-    <p class="caption">Each card represents one merged outlet profile.</p>
-    <div id="browse-out"></div>
-  </section>
-
-  <section class="panel" id="panel-coverage" role="tabpanel" aria-labelledby="tab-coverage" hidden>
-    <p class="caption">Underlying source rows preserved for QA and geography lookup.</p>
-    <div class="tablewrap"><table class="dense"><thead><tr id="cov-head"></tr></thead><tbody id="cov-body"></tbody></table></div>
-  </section>
-
-  <section class="panel" id="panel-explorer" role="tabpanel" aria-labelledby="tab-explorer" hidden>
+  <section class="panel" id="panel-explorer" role="tabpanel" aria-labelledby="tab-explorer">
     <p class="caption">Both tables in full, unfiltered, every column &mdash; for QA and drill-down.</p>
     <div class="meta"><p class="count" id="exp-count"></p><span class="spacer"></span>
       <div class="toggle" id="exp-toggle">
@@ -253,6 +243,16 @@ textarea{width:100%;height:220px;font-family:'Courier New',monospace;font-size:1
         <button type="button" data-exp="coverage" aria-pressed="false">Coverage table</button>
       </div></div>
     <div class="tablewrap"><table class="dense"><thead><tr id="exp-head"></tr></thead><tbody id="exp-body"></tbody></table></div>
+  </section>
+
+  <section class="panel" id="panel-browse" role="tabpanel" aria-labelledby="tab-browse" hidden>
+    <p class="caption">Each card represents one merged outlet profile.</p>
+    <div id="browse-out"></div>
+  </section>
+
+  <section class="panel" id="panel-coverage" role="tabpanel" aria-labelledby="tab-coverage" hidden>
+    <p class="caption">Underlying source rows preserved for QA and geography lookup.</p>
+    <div class="tablewrap"><table class="dense"><thead><tr id="cov-head"></tr></thead><tbody id="cov-body"></tbody></table></div>
   </section>
 
   <div class="pager">
@@ -306,14 +306,14 @@ const num = n => n.toLocaleString('en-US');
 /* outlet -> the states/sources reachable through its coverage rows */
 const covByOutlet = new Map();
 
-let SEARCH = new Map(OUTLETS.map(o => [o.outlet_id, [
-  o.outlet_name, o.domain, o.canonical_url, o.primary_medium, o.mediums,
-  o.states, o.cities, o.counties, o.source_files
-].join(' ').toLowerCase()]));
+/* Built in buildFromData(), once OUTLETS holds the feed. Building it here, at
+   parse time, indexes an empty array: every lookup then returns undefined and
+   the first keystroke in the search box throws. */
+let SEARCH = new Map();
 
 const PER = {browse: 24, coverage: 50, explorer: 50};
 const state = {
-  tab: 'browse', view: 'cards', exp: 'outlets',
+  tab: 'explorer', view: 'cards', exp: 'outlets',
   q: '', f: {state: new Set(), medium: new Set(), source: new Set()},
   sort: 'outlet_name', dir: 1, page: 1
 };
@@ -368,6 +368,11 @@ function tally(vals) {
 }
 
 function buildFromData() {
+SEARCH = new Map(OUTLETS.map(o => [o.outlet_id, [
+  o.outlet_name, o.domain, o.canonical_url, o.primary_medium, o.mediums,
+  o.states, o.cities, o.counties, o.source_files
+].join(' ').toLowerCase()]));
+
 /* ---- metric tiles ---- */
 // Counts come from the manifest where possible, so a number is never wrong
 // merely because a lazily-loaded file has not arrived.
@@ -399,7 +404,7 @@ document.addEventListener('click', e => {
 /* ---- tabs ---- */
 document.querySelectorAll('[role=tab]').forEach(t => t.addEventListener('click', async () => {
   state.tab = t.id.replace('tab-', ''); state.page = 1;
-  if (state.tab !== 'browse') {
+  if (state.tab === 'coverage') {
     // Coverage arrives on demand; the first click on these tabs pays for it.
     t.textContent = t.textContent.replace(/ …$/, '') + ' …';
     try { await loadCoverage(); } finally { t.textContent = t.textContent.replace(/ …$/, ''); }
@@ -413,8 +418,13 @@ document.getElementById('view').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   state.view = b.dataset.view; state.page = 1; render();
 });
-document.getElementById('exp-toggle').addEventListener('click', e => {
+document.getElementById('exp-toggle').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.exp === 'coverage' && !coverageLoaded) {
+    const label = b.textContent;
+    b.textContent = label + ' …';
+    try { await loadCoverage(); } finally { b.textContent = label; }
+  }
   state.exp = b.dataset.exp; state.page = 1; render();
 });
 
