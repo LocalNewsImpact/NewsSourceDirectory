@@ -142,8 +142,14 @@ class Place(models.Model):
     outlet-covers-place assertions across 562 municipalities, and 27 of those
     have a single outlet.
 
-    `gnis` is the USGS identifier and the reliable join key; names collide across
-    states and even within them.
+    Seeded from the USGS Domestic Names National File rather than only from
+    places the coverage data happens to mention. That is what turns "27
+    municipalities are served by one outlet" into "and N more are served by
+    none" — a place with no outlet cannot appear in a table built from outlet
+    records.
+
+    `gnis` is the USGS feature id and the reliable join key; names collide across
+    states and within them.
     """
 
     class Kind(models.TextChoices):
@@ -158,16 +164,24 @@ class Place(models.Model):
     state = models.ForeignKey(
         "State", null=True, blank=True, on_delete=models.PROTECT, related_name="places"
     )
+    # USGS feature id. Arrives from the source spreadsheets as a float string
+    # ("1723212.0") and must be coerced on import.
     gnis = models.CharField(max_length=64, blank=True, db_index=True)
-    # New Jersey municipal identifier, present on 4,480 source rows.
+    # New Jersey municipal identifier, present on 4,480 source rows. Kept
+    # because it does not map cleanly onto gnis — 561 gnis values and 562 mun_id
+    # values produce 597 distinct pairs, so roughly 36 disagree and need review.
     mun_id = models.CharField(max_length=64, blank=True, db_index=True)
+    seeded_from_gnis = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("state__name", "name")
         constraints = [
             models.UniqueConstraint(
                 fields=["name", "kind", "state"], name="uq_place_name_kind_state"
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["gnis"], condition=models.Q(gnis__gt=""), name="uq_place_gnis"
+            ),
         ]
 
     def __str__(self):
@@ -180,7 +194,18 @@ class OutletPlace(models.Model):
     A through model rather than a plain many-to-many so the claim keeps its
     evidence. "Who said this outlet covers Montclair" is the difference between a
     finding and an assumption.
+
+    `match_method` records how the place was resolved, which matters because the
+    two routes are not equally trustworthy. Only New Jersey carries GNIS ids —
+    4,480 rows, all of them. Every other state has a city and county name, so
+    those links are inferred by matching text against the seeded gazetteer and
+    should be reviewed rather than trusted.
     """
+
+    class MatchMethod(models.TextChoices):
+        GNIS = "gnis", "GNIS id in the source"
+        NAME = "name", "Matched on place name and state"
+        MANUAL = "manual", "Set by an editor"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     outlet = models.ForeignKey("Outlet", on_delete=models.CASCADE, related_name="place_links")

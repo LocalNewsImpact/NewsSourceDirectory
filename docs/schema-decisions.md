@@ -202,3 +202,40 @@ never discarded because it failed to parse.
 `Status.MERGED` marks the outcome without asserting a structure. A
 predecessor/successor link can be added when there is a real case to hang it on,
 rather than a hypothetical one.
+
+---
+
+## 9. Where does `Place` come from?
+
+**Answer: seeded from GNIS, not from the coverage data.**
+
+Building `Place` only from places the data mentions can never answer the question
+that matters. A municipality with no outlet has no coverage record, so it cannot
+appear in a table derived from coverage records. Seeding from the USGS Domestic
+Names National File turns "27 municipalities are served by one outlet" into "and
+N more are served by none".
+
+Three things the source data forces:
+
+1. **GNIS ids arrive as floats.** The values are real feature ids — 546 of six
+   digits, 15 of seven — but stored as `"1723212.0"`. They need coercing to
+   integers on import or they will never match the gazetteer.
+2. **`gnis` and `mun_id` do not agree.** 561 distinct GNIS values and 562
+   distinct `mun_id` values produce **597 distinct pairs**, so roughly 36
+   disagree. Both are kept and the disagreements go to review; neither is assumed
+   correct.
+3. **Only New Jersey has GNIS ids at all** — all 4,480 of its rows, and none
+   elsewhere. Every other state carries city and county names only.
+
+That third point is why `OutletPlace.match_method` exists. A link resolved from a
+GNIS id in the source is a fact; a link resolved by matching "Springfield" against
+a gazetteer is an inference, and the two should not be indistinguishable once
+they are in the database. Name-matched links default to `needs_review`.
+
+---
+
+## Deferred
+
+- **Researcher portal** — held. Nothing in the schema forecloses it.
+- **Succession** — see above.
+- **Feed destination** — settled: an S3 bucket, on its own subdomain.
