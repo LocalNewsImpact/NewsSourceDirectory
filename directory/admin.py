@@ -26,6 +26,7 @@ from directory.models import (
     SourceImport,
     State,
 )
+from directory.publishing import PublishError, request_publish
 
 
 class DistinctNameFilter(admin.SimpleListFilter):
@@ -103,7 +104,7 @@ class OutletAdmin(ImportExportModelAdmin, SimpleHistoryAdmin):
     inlines = (OutletPlaceInline, CoverageInline)
     readonly_fields = ("identity_key", "record_count", "source_count", "created_at", "updated_at")
     list_select_related = ("medium", "state", "owner")
-    actions = ("split_by_name", "mark_reviewed", "flag_for_review")
+    actions = ("split_by_name", "mark_reviewed", "flag_for_review", "publish_feed")
     fieldsets = (
         (None, {"fields": ("name", "canonical_url", "domain", "identity_key", "status")}),
         ("Classification", {"fields": ("medium", "categories", "owner")}),
@@ -193,6 +194,28 @@ class OutletAdmin(ImportExportModelAdmin, SimpleHistoryAdmin):
                 f"{skipped} outlet(s) had one name and were left alone.",
                 messages.INFO,
             )
+
+    @admin.action(description="Publish the public feed now")
+    def publish_feed(self, request, queryset):
+        """Ask GitHub to rebuild the feed.
+
+        Deliberately an explicit action rather than something that fires on
+        every save: an editor part-way through fixing a merge should not be
+        publishing each intermediate state, and being told when it happened is
+        worth more than it happening silently.
+
+        The selection is ignored — the feed is always the whole registry.
+        """
+        try:
+            request_publish(reason=f"admin:{request.user.get_username()}")
+        except PublishError as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+            return
+        self.message_user(
+            request,
+            "Publish requested. The feed updates in a few minutes; progress is on the Actions tab.",
+            messages.SUCCESS,
+        )
 
     @admin.action(description="Mark reviewed")
     def mark_reviewed(self, request, queryset):
