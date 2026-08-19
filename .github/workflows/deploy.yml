@@ -73,41 +73,26 @@ jobs:
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 
-      # Migrations run as a job before traffic shifts, never as a side effect of
-      # the service starting — two revisions racing to migrate is a bad night.
-      - name: Run migrations
+      # One job, not two. Each `jobs deploy` costs 60-90s even when nothing
+      # changed, and running migrate and configure_site separately spent about
+      # four and a half minutes of every deploy on the same overhead twice.
+      #
+      # Migrations run before traffic shifts, never as a side effect of the
+      # service starting — two revisions racing to migrate is a bad night.
+      - name: Migrate and configure the site
         if: steps.app.outputs.ready == 'true'
         run: |
-          gcloud run jobs deploy "${SERVICE}-migrate" \
+          gcloud run jobs deploy "${SERVICE}-release" \
             --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" \
-            --command python --args manage.py,migrate \
+            --command /bin/sh \
+            --args "^|^-c|python manage.py migrate --noinput && python manage.py configure_site --domain $ADMIN_HOST" \
             --set-secrets DJANGO_SECRET_KEY=django-secret-key:latest,DB_PASSWORD=db-password:latest \
             --set-env-vars "CLOUD_SQL_CONNECTION_NAME=$SQL_INSTANCE,DB_NAME=directory,DB_USER=directory" \
             --set-cloudsql-instances $SQL_INSTANCE \
             --service-account directory-run@lnic-source-directory.iam.gserviceaccount.com
-          gcloud run jobs execute "${SERVICE}-migrate" \
+          gcloud run jobs execute "${SERVICE}-release" \
             --region "$REGION" --project "$PROJECT_ID" --wait
 
-      # django.contrib.sites ships as example.com, and allauth builds OAuth
-      # callback URLs from it. Run on every deploy so a rebuilt database cannot
-      # quietly send Google to the wrong host.
-      - name: Point the Site at the real hostname
-        if: steps.app.outputs.ready == 'true'
-        run: |
-          gcloud run jobs deploy "${SERVICE}-site" \
-            --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" \
-            --command python --args "^@^manage.py@configure_site@--domain@$ADMIN_HOST" \
-            --set-secrets DJANGO_SECRET_KEY=django-secret-key:latest,DB_PASSWORD=db-password:latest \
-            --set-env-vars "CLOUD_SQL_CONNECTION_NAME=$SQL_INSTANCE,DB_NAME=directory,DB_USER=directory" \
-            --set-cloudsql-instances $SQL_INSTANCE \
-            --service-account directory-run@lnic-source-directory.iam.gserviceaccount.com
-          gcloud run jobs execute "${SERVICE}-site" \
-            --region "$REGION" --project "$PROJECT_ID" --wait
-
-      # The ^@^ prefix changes gcloud's separator from a comma to an @, because
-      # DJANGO_ALLOWED_HOSTS itself contains a comma. Backslash-escaping does not
-      # work here: the value would split and the service would answer 400 to its
-      # own health check.
       - name: Deploy the service
         if: steps.app.outputs.ready == 'true'
         run: |

@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
 
-from directory.views import healthz
+from directory.views import admin_login_gateway, healthz
 
 admin.site.site_header = "News Source Directory"
 admin.site.site_title = "News Source Directory"
@@ -24,12 +24,7 @@ urlpatterns = [
 # redeploy, and the ordinary form comes back. Nobody can be locked out by a
 # broken OAuth client.
 if settings.GOOGLE_SIGN_IN_CONFIGURED:
-    urlpatterns += [
-        path(
-            "admin/login/",
-            RedirectView.as_view(url="/accounts/login/", query_string=True),
-        )
-    ]
+    urlpatterns += [path("admin/login/", admin_login_gateway)]
 
 urlpatterns += [
     path("admin/", admin.site.urls),

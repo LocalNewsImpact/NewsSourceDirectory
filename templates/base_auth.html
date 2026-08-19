@@ -1,0 +1,61 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}News Source Directory{% endblock %}</title>
+<style>
+  /* Deliberately small and self-contained. This page is the front door and
+     loads before anything else is warm, so it pulls no external assets. */
+  :root {
+    --ink: #1c2a31; --muted: #5b6b74; --rule: #dfe5e8;
+    --link: #0073aa; --link-hover: #005177; --accent: #66cef6;
+    --ground: #ffffff; --ground-soft: #f6f9fb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: var(--ground-soft); color: var(--ink);
+    font: 16px/1.6 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    padding: 24px;
+  }
+  .card {
+    background: var(--ground); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 40px; width: 100%; max-width: 420px;
+    box-shadow: 0 1px 3px rgba(20, 38, 46, .06);
+  }
+  h1 {
+    font-family: 'Montserrat', Helvetica, Arial, sans-serif;
+    font-size: 22px; font-weight: 600; margin: 0 0 6px;
+  }
+  p.sub { margin: 0 0 26px; color: var(--muted); font-size: 15px; }
+  .socialaccount_providers, ul { list-style: none; padding: 0; margin: 0; }
+  a.btn, button[type=submit], .socialaccount_providers a {
+    display: block; width: 100%; text-align: center; text-decoration: none;
+    font-family: 'Montserrat', Helvetica, Arial, sans-serif;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    background: var(--link); color: #fff; border: 1px solid var(--link);
+    border-radius: 4px; padding: 12px 18px; margin-bottom: 10px;
+  }
+  a.btn:hover, button[type=submit]:hover, .socialaccount_providers a:hover { background: var(--link-hover); }
+  .note {
+    margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13.5px;
+  }
+  .note strong { color: var(--ink); }
+  code { background: var(--ground-soft); padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  form.login input[type=text], form.login input[type=password], form.login input[type=email] {
+    width: 100%; padding: 10px; margin-bottom: 10px;
+    border: 1px solid var(--rule); border-radius: 4px; font-size: 15px;
+  }
+  form.login label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .errorlist { color: #a4262c; font-size: 14px; padding-left: 18px; margin: 0 0 14px; }
+  a { color: var(--link); }
+</style>
+</head>
+<body>
+  <main class="card">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
