@@ -1,0 +1,34 @@
+{% extends "base_auth.html" %}
+{% load socialaccount %}
+{% block title %}Sign in — News Source Directory{% endblock %}
+{% block content %}
+  <h1>News Source Directory</h1>
+  <p class="sub">Local News Impact Consortium</p>
+
+  {% get_providers as socialaccount_providers %}
+  {% if socialaccount_providers %}
+    {% for provider in socialaccount_providers %}
+      <form method="post" action="{% provider_login_url provider.id process='login' %}">
+        {% csrf_token %}
+        {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+        <button type="submit">Sign in with Google</button>
+      </form>
+    {% endfor %}
+  {% else %}
+    {# No OAuth client configured — the ordinary form is the way in. #}
+    <form class="login" method="post" action="{% url 'account_login' %}">
+      {% csrf_token %}
+      {{ form.as_p }}
+      {% if redirect_field_value %}
+        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+      {% endif %}
+      <button type="submit">Sign in</button>
+    </form>
+    <p class="note">Google sign-in is not configured, so this is the password form.</p>
+  {% endif %}
+
+  <p class="note">
+    Accounts are restricted to <strong>{{ allowed_domain }}</strong> addresses.
+    If you need access, ask an administrator to add you.
+  </p>
+{% endblock %}
