@@ -336,19 +336,49 @@ class OwnerAdmin(SimpleHistoryAdmin):
         super().save_model(request, obj, form, change)
 
 
+class ServedFilter(admin.SimpleListFilter):
+    """How many outlets cover a place.
+
+    The reason for seeding the gazetteer: a place with no outlet has no coverage
+    record, so "served by nobody" is only answerable against a table that
+    contains places nothing points at.
+    """
+
+    title = "outlets covering it"
+    parameter_name = "served"
+
+    def lookups(self, request, model_admin):
+        return [("none", "None"), ("one", "Exactly one"), ("many", "Two or more")]
+
+    def queryset(self, request, queryset):
+        if self.value() not in {"none", "one", "many"}:
+            return queryset
+        annotated = queryset.annotate(n=Count("outlets", distinct=True))
+        return {
+            "none": annotated.filter(n=0),
+            "one": annotated.filter(n=1),
+            "many": annotated.filter(n__gt=1),
+        }[self.value()]
+
+
 @admin.register(Place)
 class PlaceAdmin(admin.ModelAdmin):
     # 231,389 rows. Faceted counts and unindexed search would make the
     # changelist unusable, so search is restricted to indexed columns.
     show_facets = admin.ShowFacets.NEVER
-    list_display = ("name", "kind", "state", "gnis", "outlet_count", "seeded_from_gnis")
-    list_filter = ("kind", "state", "seeded_from_gnis")
+    list_display = ("name", "kind", "feature_class", "state", "gnis", "outlet_count")
+    list_filter = (ServedFilter, "feature_class", "kind", "state", "seeded_from_gnis")
     search_fields = ("name", "gnis", "mun_id")
     list_select_related = ("state",)
 
-    @admin.display(description="outlets")
+    def get_queryset(self, request):
+        # Annotated once here rather than queried per row: 231,389 rows would
+        # otherwise mean a count query for every line on the page.
+        return super().get_queryset(request).annotate(n=Count("outlets", distinct=True))
+
+    @admin.display(description="outlets", ordering="n")
     def outlet_count(self, obj):
-        return obj.outlets.count()
+        return obj.n
 
 
 @admin.register(Collection)

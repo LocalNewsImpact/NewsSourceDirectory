@@ -158,3 +158,52 @@ class TestPlaceLinkConfirmation:
         link.refresh_from_db()
         assert link.needs_review is False
         assert link.match_method == OutletPlace.MatchMethod.MANUAL
+
+
+class TestTileLinksResolve:
+    """Every tile URL must be a lookup the admin permits.
+
+    Django rejects an unregistered lookup with 400 rather than ignoring it, so a
+    tile pointing at a filter that does not exist is a dead link that looks like
+    a broken page.
+    """
+
+    @pytest.fixture
+    def registry(self):
+        nj = State.objects.create(code="NJ", name="New Jersey")
+        Place.objects.create(name="Somewhere", state=nj, feature_class="Civil")
+        outlet = Outlet.objects.create(name="A", identity_key="a", needs_review=True)
+        DataQualityIssue.objects.create(rule="has_domain", severity="warn", message="x")
+        return outlet
+
+    def test_every_tile_url_returns_a_page(self, staff_client, registry):
+        tiles = (
+            dashboard.review_tiles()
+            + dashboard.quality_tiles()
+            + dashboard.registry_tiles()
+            + [dashboard.unserved_places("NJ")]
+        )
+        for tile in tiles:
+            response = staff_client.get(tile.url)
+            assert response.status_code == 200, f"{tile.label} -> {response.status_code} {tile.url}"
+
+    def test_the_unserved_tile_lands_on_the_rows_it_counted(self, staff_client, registry):
+        """The count and the list behind it must agree, or the link is a lie."""
+        tile = dashboard.unserved_places("NJ")
+        response = staff_client.get(tile.url)
+        assert response.status_code == 200
+        assert response.context["cl"].result_count == tile.count
+
+
+class TestServedFilter:
+    def test_it_separates_places_by_coverage(self, staff_client):
+        nj = State.objects.create(code="NJ", name="New Jersey")
+        bare = Place.objects.create(name="Unserved", state=nj, feature_class="Civil")
+        covered = Place.objects.create(name="Served", state=nj, feature_class="Civil")
+        outlet = Outlet.objects.create(name="A", identity_key="a")
+        OutletPlace.objects.create(outlet=outlet, place=covered)
+
+        none_url = "/admin/directory/place/?served=none"
+        rows = staff_client.get(none_url).context["cl"].queryset
+        assert bare in rows
+        assert covered not in rows
