@@ -76,6 +76,7 @@ class Command(BaseCommand):
         read by a browser and by the crawler, and neither can resolve a UUID
         into a medium.
         """
+        source_files = self._source_files()
         rows = []
         for outlet in (
             Outlet.objects.filter(is_published=True)
@@ -100,9 +101,25 @@ class Command(BaseCommand):
                     "record_count": str(outlet.record_count),
                     "source_count": str(outlet.source_count),
                     "places": " | ".join(sorted(p.name for p in outlet.places.all())),
+                    # Carried on the outlet so the directory view needs nothing
+                    # else; coverage stays lazy and most visitors never fetch it.
+                    "source_files": " | ".join(sorted(source_files.get(outlet.id, ()))),
                 }
             )
         return rows
+
+    def _source_files(self) -> dict:
+        """Which studies name each outlet, rolled up so the browse view can
+        filter on provenance without loading every coverage record."""
+        from collections import defaultdict
+
+        out = defaultdict(set)
+        for outlet_id, source_file in CoverageRecord.objects.filter(
+            outlet__isnull=False
+        ).values_list("outlet_id", "source_file"):
+            if source_file:
+                out[outlet_id].add(source_file)
+        return out
 
     def _coverage(self) -> list[dict]:
         """Coverage rows for outlets that publish.

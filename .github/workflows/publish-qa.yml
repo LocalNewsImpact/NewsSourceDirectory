@@ -71,13 +71,13 @@ jobs:
           if [ "${{ inputs.allow_errors || 'true' }}" = "true" ]; then
             FLAGS="--allow-errors"
           fi
-          python manage.py publish --out docs-feed $FLAGS
+          python manage.py publish --out data $FLAGS
 
       - name: Commit it, if anything changed
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs-feed
+          git add data
           if git diff --cached --quiet; then
             # The build is content-hashed, so an unchanged registry produces
             # identical files. Nothing to say.
