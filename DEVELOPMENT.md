@@ -14,12 +14,14 @@ Confirmed against the live org, not assumed:
 | Billing | `011142-05FA4C-0FCA10` (Kiesow - LNIC Billing), open |
 | Existing projects | 7, including `mizzou-news-crawler` in the same org |
 | Naming convention | kebab-case, e.g. `lnic-form-service-account` |
+| Project | `lnic-source-directory` |
+| DNS | Route 53, with a `*.localnewsimpact.org` wildcard on the WordPress host |
 | Region | `us-central1`, matching the crawler |
 
 **Domain Restricted Sharing is enforced**, allowing only customer `C04iy3g4y`.
 A personal Google account cannot hold any IAM role in this org — the grant is
-refused at the API. Anyone who needs GCP access needs a `@localnewsimpact.org`
-identity first. This is a hard constraint, not a preference.
+refused at the API. Everyone needing access must use a `@localnewsimpact.org`
+identity; Matt's is `matt@localnewsimpact.org`.
 
 ---
 
@@ -45,7 +47,7 @@ Open questions worth settling before code depends on them:
 
 **Deliverable** an empty but complete project.
 
-1. Create `lnic-news-directory` under the org, on the LNIC billing account.
+1. Create `lnic-source-directory` under the org, on the LNIC billing account.
 2. Enable: `run`, `sqladmin`, `artifactregistry`, `cloudbuild`, `iap`,
    `secretmanager`, `storage`, `cloudscheduler`.
 3. Cloud SQL: Postgres 16, Enterprise, `db-custom-1-3840`, **private IP**,
@@ -58,13 +60,19 @@ Open questions worth settling before code depends on them:
    to this repo — so deploys run from GitHub Actions and no human holds
    production write.
 7. Secrets: database password, Django `SECRET_KEY`.
-8. Cloud Identity account for Matt at `@localnewsimpact.org`; a
-   `lnic-directory-editors@` group for IAP.
+8. A `lnic-directory-editors@localnewsimpact.org` group for IAP, with
+   `matt@localnewsimpact.org` in it.
+9. Reserve the global address for `directory.localnewsimpact.org` and create the
+   Route 53 A record, so the managed certificate can issue later.
+
+Infrastructure is a scripted, idempotent `infra/bootstrap.sh` rather than
+Terraform — rerunning is safe, and the script is the description of what exists.
 
 **Done when** `terraform plan` (or the scripted equivalent) is clean and the
 bucket serves a hand-uploaded `manifest.json`.
 
-**Decisions needed** project id; whether IaC is Terraform or a documented script.
+The load balancer stage (`stage_lb`) runs after the first Cloud Run deploy,
+since a serverless NEG needs an existing service.
 
 ---
 

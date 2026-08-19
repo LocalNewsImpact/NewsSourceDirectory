@@ -52,6 +52,35 @@ would not be the constraint, and the real ceiling is concurrent admin users, whi
 is under ten. Choose dedicated core for the SLA and predictable latency, not for
 headroom. Nothing in the architecture changes either way.
 
+### Admin hostname
+
+The admin is served at **`directory.localnewsimpact.org`**, not a `run.app` URL.
+
+That requires a global external Application Load Balancer in front of Cloud Run:
+IAP on a bare Cloud Run service only protects the `run.app` hostname, and Cloud
+Run domain mappings do not carry IAP. So the admin path is
+
+```
+directory.localnewsimpact.org
+  -> A record (Route 53)      overrides the *.localnewsimpact.org wildcard
+  -> global external ALB      Google-managed certificate, IAP on the backend
+  -> serverless NEG
+  -> Cloud Run (ingress: internal-and-cloud-load-balancing)
+```
+
+The ingress setting matters as much as IAP: without it the `run.app` URL stays
+reachable and walks straight past the load balancer, and therefore past IAP.
+
+This costs ~$18/month for the forwarding rule. The **feed is unaffected** — it
+still serves directly from the bucket, so the charge is paid once, for the admin,
+not for the public side.
+
+DNS is Route 53, and `*.localnewsimpact.org` currently resolves to the WordPress
+host (50.16.132.48). A record for the exact name takes precedence, so no wildcard
+change is needed. Create it before the certificate is requested: a Google-managed
+certificate will not issue until the hostname already resolves to the load
+balancer address.
+
 ### App server
 
 Gunicorn, WSGI, with the Cloud Run shape:
@@ -108,11 +137,12 @@ The public payload is 65KB gzipped for outlets, 204KB with coverage records
 included. The browser loads it once and does its own search, filtering, sorting
 and CSV export. No API service, no read replica, no query load.
 
-**No Cloud CDN.** It requires an external Application Load Balancer whose
-forwarding rule alone is ~$18/month — more than the database. Serve from the
-bucket directly with CORS. If a custom domain and edge caching are wanted later,
-Cloudflare's free tier goes in front. Same trap on the admin: enable IAP
-**directly on Cloud Run**, not via a load balancer.
+**No Cloud CDN in front of the feed.** It requires an external Application Load
+Balancer whose forwarding rule alone is ~$18/month. The feed serves straight from
+the bucket with CORS, and at 73KB gzipped a CDN buys almost nothing. If a custom
+domain for the feed is wanted later, Cloudflare's free tier goes in front.
+
+The **admin** is the exception, and does need a load balancer — see below.
 
 ## Data model
 
@@ -302,16 +332,20 @@ so no human holds production write access.
 
 | Line item | Monthly |
 |---|---|
-| Cloud SQL Postgres `db-f1-micro` + 10GB SSD | ~$11 |
+| Cloud SQL Postgres `db-custom-1-3840` + 10GB SSD | ~$50 |
+| Load balancer for `directory.localnewsimpact.org` | ~$18 |
 | Cloud Run (scale-to-zero) | $0–2 |
-| GCS storage | ~$0.10 |
-| Egress, 10k page views | ~$0.30 |
+| GCS storage and egress | ~$0.50 |
 | Artifact Registry, Secret Manager, logs | <$1 |
-| **Total** | **~$13–15** |
+| **Total** | **~$70** |
+
+Two of those are deliberate upgrades from the ~$15 first estimate: a dedicated
+core for the SLA rather than a shared core with none, and a load balancer to put
+the admin on a real hostname. Both are single variables in
+`infra/bootstrap.sh`.
 
 `min-instances=1` to remove Django cold starts adds ~$10. Cloud SQL HA roughly
-doubles the database line. `db-f1-micro` is shared-core and carries no Cloud SQL
-SLA — fine for a few editors; an SLA-covered tier jumps to ~$50.
+doubles the database line.
 
 ## Security notes
 
