@@ -93,6 +93,46 @@ Route 53 holds `localnewsimpact.org`, with a `*` A record on the WordPress host
 (50.16.132.48). A record for an exact name beats the wildcard, so no wildcard
 change is needed for either the admin hostname or the feed.
 
+## Public ingress
+
+Cloud Run rejects a request with 403 before it reaches Django unless something
+holds `roles/run.invoker`. `--allow-unauthenticated` grants that to `allUsers`,
+which the organisation's Domain Restricted Sharing policy refuses — the same
+constraint that blocked the public bucket.
+
+**gcloud reports this as a warning and exits zero.** The first real deploy built
+the image, ran migrations and served a revision while leaving it unreachable:
+
+```
+Setting IAM Policy............warning
+Completed with warnings:
+  Setting IAM policy failed, try "gcloud ... --role=roles/run.invoker"
+```
+
+`deploy.yml` now checks for the binding after deploying and fails when it is
+absent, so that cannot pass silently again.
+
+The project therefore carries an exception, set on this project alone while the
+rest of the organisation keeps its restriction:
+
+```bash
+# exception.yaml
+#   constraint: constraints/iam.allowedPolicyMemberDomains
+#   listPolicy: {allValues: ALLOW}
+gcloud resource-manager org-policies set-policy exception.yaml \
+  --project=lnic-source-directory
+```
+
+It was needed rather than preferred. The researcher portal must admit accounts
+outside the domain, and those can never be IAM principals while the constraint
+applies, so public ingress was required eventually regardless — taking it here
+keeps one authentication system instead of two.
+
+The cost is worth stating plainly: **this project no longer restricts external
+IAM principals**, so someone could grant an outside account access to it. The
+database is protected separately (see Database isolation), but the project
+boundary is now a thing being trusted rather than enforced.
+
 ## How the service reaches the database
 
 Cloud Run connects to Cloud SQL through a **unix socket** at
