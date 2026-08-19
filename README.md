@@ -9,6 +9,20 @@ Streamlit prototype — **2,103 outlets and 8,561 coverage records**. Every feat
 of that prototype is preserved; see [MIGRATION.md](MIGRATION.md) for the parity
 inventory and the data problems that have to be fixed on the way.
 
+## Documentation
+
+| | |
+|---|---|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Local environment, tests, and the branch-to-deploy workflow |
+| [docs/reviewing.md](docs/reviewing.md) | **For reviewers.** Working the merge queue, split and merge, publishing |
+| [docs/runbook.md](docs/runbook.md) | Rollback, feed recovery, backup and restore, granting access |
+| [docs/schema-decisions.md](docs/schema-decisions.md) | Why the models are shaped this way, argued from the data |
+| [docs/auth.md](docs/auth.md) | Google sign-in, the domain restriction, and why not IAP |
+| [docs/crawler-etl.md](docs/crawler-etl.md) | Loading the news crawler's sources into the registry |
+| [MIGRATION.md](MIGRATION.md) | Feature parity with the Streamlit prototype, and the data problems |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | The milestone plan |
+| [infra/README.md](infra/README.md) | What exists in GCP and why it costs what it costs |
+
 ## Architecture
 
 ```
@@ -372,14 +386,28 @@ Two things that are easy to get wrong and are not optional:
 
 ## Status
 
-Nothing is built yet.
+Built, deployed and serving. The admin is at
+<https://sources.localnewsimpact.org/admin/>, and the public feed publishes to
+the `gh-pages` branch of this repository.
 
-- [x] CI: lint, tests, data-quality rules, feed build
-- [x] Public static feed generator
-- [x] Schema review — nine decisions in [docs/schema-decisions.md](docs/schema-decisions.md)
-- [x] Django project, admin, import/export and history wired up
-- [ ] `import_source`, `rebuild_outlets`, `publish` management commands
-- [ ] GCP project, Cloud SQL, IAP, bucket
-- [ ] Widget build and the WordPress shortcode plugin
-- [ ] Deploy workflow via Workload Identity Federation
-- [ ] Work the review queue: 222 suspect merges, 138 missing domains, 103 missing media
+The registry currently holds **2,809 outlets** derived from **8,561 coverage
+records**, against the prototype's 2,103.
+
+- [x] Schema — nine decisions in [docs/schema-decisions.md](docs/schema-decisions.md)
+- [x] CI on every branch: lint, unit, integration, data quality, feed build, Pages payload
+- [x] Django project, admin, import/export, history, and the review dashboard
+- [x] `import_source`, `rebuild_outlets`, `publish`, `seed_places`, `seed_vocabularies`
+- [x] GCP: project, Cloud SQL on the crawler's instance, Artifact Registry, secrets
+- [x] Deploy on merge to `main` via Workload Identity Federation
+- [x] Google sign-in restricted to the `localnewsimpact.org` hosted domain
+- [x] Public static feed, content-addressed, with a lazy coverage payload
+- [x] The widget and the WordPress shortcode plugin
+- [ ] Work the review queue: **167 suspected bad merges**, 143 outlets with no
+      domain, 228 with no medium, 289 data-quality issues open
+- [ ] Point the WordPress page at the production feed and publish it
+- [ ] Load the crawler's sources — see [docs/crawler-etl.md](docs/crawler-etl.md)
+
+IAP was considered and rejected in favour of application-level auth; a public
+GCS bucket was rejected because the organisation's Domain Restricted Sharing
+policy refuses `allUsers`. Both are explained in [docs/auth.md](docs/auth.md) and
+[infra/README.md](infra/README.md).
