@@ -345,6 +345,11 @@ class CoverageRecord(models.Model):
     source_file = models.CharField(max_length=255, db_index=True)
     source_sheet = models.CharField(max_length=255, blank=True)
 
+    # The prototype's own outlet grouping, kept only so our rebuild can be
+    # measured against it. Never used to group anything here — that grouping is
+    # the defect being corrected.
+    legacy_outlet_id = models.CharField(max_length=64, blank=True, db_index=True)
+
     outlet_name_raw = models.CharField(max_length=255)
     url = models.URLField(max_length=500, blank=True)
     medium_raw = models.CharField(max_length=255, blank=True)
