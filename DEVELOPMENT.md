@@ -138,7 +138,16 @@ data:
 | Owners normalised | 277, from 281 distinct strings |
 | Closed outlets | 86 |
 
-**Still to do:** `seed_places` from GNIS and the `OutletPlace` links.
+**Still to do:** run the import against production, and download the GNIS
+national file to seed places from.
+
+`seed_places` is written. It needs the USGS Domestic Names National File, which
+is ~2 million rows and is not committed:
+<https://www.usgs.gov/us-board-on-geographic-names/download-gnis-data>
+
+```bash
+python manage.py seed_places --file DomesticNames_National.txt --states NJ,MO --link
+```
 
 **Depends on** M2. **Done when** the rules report zero errors on derived data, or
 every remaining error is deliberate and flagged.
