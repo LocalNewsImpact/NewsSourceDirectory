@@ -1,0 +1,11 @@
+# Every pull request needs a review from an owner before it can merge.
+# Branch protection enforces this; this file decides who gets asked.
+
+*                       @dkiesow
+
+# Changes here alter who can deploy, what the project costs, or what becomes
+# public. Worth a deliberate second look even among owners.
+/infra/                 @dkiesow
+/.github/workflows/     @dkiesow
+/checks/rules.py        @dkiesow
+/feed/                  @dkiesow

@@ -270,14 +270,28 @@ Revisit if the registry grows by an order of magnitude, or if indexing time
 becomes visible on low-end phones — at which point the generator is already here
 and the decision is a flag, not a rewrite.
 
+## Working on this
+
+```bash
+make setup     # venv, dependencies, .env, Postgres in Docker
+make check     # everything CI runs
+```
+
+No GCP access needed — the project runs locally against fixtures. Full workflow
+in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+`main` is protected: branch, push, open a PR, CI must pass, a reviewer must
+approve, then merging deploys.
+
 ## CI and data quality
 
-`.github/workflows/ci.yml` runs five jobs on every push and pull request.
+`.github/workflows/ci.yml` runs six jobs on **every branch**, not only on pull requests, so failures surface before a PR exists.
 
 | Job | Checks |
 |---|---|
 | Lint | `ruff check` and `ruff format --check` |
-| Tests | 60 tests over the rules and the mockup |
+| Tests | unit tests over the rules, identity, feed and mockup |
+| Integration | tests against a real Postgres 16 service |
 | Data quality | the rules against a fixture of real prototype data |
 | Public feed | feed builds, carries no admin columns, is reproducible |
 | Pages payload | the mockup stays servable, internal doc links resolve |

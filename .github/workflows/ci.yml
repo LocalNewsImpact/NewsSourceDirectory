@@ -1,8 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  push:            # every branch, so a contributor sees failures before opening a PR
   pull_request:
   workflow_dispatch:
 
@@ -37,8 +36,33 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install pytest==8.3.4
-      - name: Rule and mockup tests
-        run: python -m pytest
+      - name: Unit tests
+        run: python -m pytest -m "not integration"
+
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: directory
+          POSTGRES_PASSWORD: directory
+          POSTGRES_DB: directory
+        ports: ["5434:5432"]
+        options: >-
+          --health-cmd "pg_isready -U directory -d directory"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://directory:directory@localhost:5434/directory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest==8.3.4 "psycopg[binary]>=3.2"
+      - name: Integration tests
+        run: python -m pytest -m integration
 
   data-quality:
     name: Data quality

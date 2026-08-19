@@ -1,0 +1,26 @@
+# Local Postgres for development and integration tests.
+#
+# Port 5434 deliberately: 5432 is usually a system Postgres and 5433 is used by
+# the crawler's throwaway test container. Nothing here should collide with work
+# on another repo.
+
+services:
+  db:
+    image: postgres:16
+    container_name: nsd-postgres
+    environment:
+      POSTGRES_USER: directory
+      POSTGRES_PASSWORD: directory
+      POSTGRES_DB: directory
+    ports:
+      - "5434:5432"
+    volumes:
+      - nsd-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U directory -d directory"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  nsd-pgdata:

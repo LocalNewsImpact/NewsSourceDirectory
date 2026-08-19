@@ -1,0 +1,20 @@
+# Runtime. Bounds rather than pins until M2 installs them for real and a lock
+# file exists.
+
+Django>=5.1,<6
+psycopg[binary]>=3.2
+gunicorn>=23.0
+whitenoise>=6.8
+dj-database-url>=2.3
+
+# The admin is most of the application.
+django-import-export>=4.3      # bulk CSV/xlsx with a dry-run diff
+django-simple-history>=3.8     # per-field history and revert
+django-allauth>=65.3           # Google sign-in, domain-checked server-side
+
+# Import pipeline.
+pandas>=2.2
+openpyxl>=3.1                  # .xlsx sources
+
+# Publishing.
+boto3>=1.35                    # feed to S3

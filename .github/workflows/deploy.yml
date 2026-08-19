@@ -1,0 +1,101 @@
+# Runs only on main, after CI has passed and a reviewer has approved — branch
+# protection guarantees both, so this workflow does not re-check them.
+#
+# Until the Django app exists there is nothing to build. Rather than sit dormant
+# and rot, the workflow authenticates to GCP on every run, which proves the
+# Workload Identity Federation binding still works. The build and deploy steps
+# switch themselves on the day a Dockerfile appears.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main          # never two deploys at once
+  cancel-in-progress: false   # let a running deploy finish
+
+permissions:
+  contents: read
+  id-token: write             # required to mint the WIF token
+
+env:
+  PROJECT_ID: lnic-source-directory
+  REGION: us-central1
+  SERVICE: sources-admin
+  REPO: app
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Is there anything to deploy yet?
+        id: app
+        run: |
+          if [ -f Dockerfile ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No Dockerfile yet — authenticating only. See DEVELOPMENT.md M2."
+          fi
+
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/666766099662/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@lnic-source-directory.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Confirm the deploy identity
+        run: |
+          gcloud auth list --filter=status:ACTIVE --format='value(account)'
+          echo "project: ${PROJECT_ID}"
+
+      - name: Build and push the image
+        if: steps.app.outputs.ready == 'true'
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}:${GITHUB_SHA::7}"
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      # Migrations run as a job before traffic shifts, never as a side effect of
+      # the service starting — two revisions racing to migrate is a bad night.
+      - name: Run migrations
+        if: steps.app.outputs.ready == 'true'
+        run: |
+          gcloud run jobs deploy "${SERVICE}-migrate" \
+            --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" \
+            --command python --args manage.py,migrate \
+            --set-secrets DJANGO_SECRET_KEY=django-secret-key:latest,DB_PASSWORD=db-password:latest \
+            --set-cloudsql-instances mizzou-news-crawler:us-central1:mizzou-db-prod \
+            --service-account directory-run@lnic-source-directory.iam.gserviceaccount.com
+          gcloud run jobs execute "${SERVICE}-migrate" \
+            --region "$REGION" --project "$PROJECT_ID" --wait
+
+      - name: Deploy the service
+        if: steps.app.outputs.ready == 'true'
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" \
+            --service-account directory-run@lnic-source-directory.iam.gserviceaccount.com \
+            --set-secrets DJANGO_SECRET_KEY=django-secret-key:latest,DB_PASSWORD=db-password:latest \
+            --set-cloudsql-instances mizzou-news-crawler:us-central1:mizzou-db-prod \
+            --ingress all --allow-unauthenticated --min-instances 0
+
+      - name: Smoke test
+        if: steps.app.outputs.ready == 'true'
+        run: |
+          URL="$(gcloud run services describe "$SERVICE" --region "$REGION" \
+                  --project "$PROJECT_ID" --format='value(status.url)')"
+          code="$(curl -s -o /dev/null -w '%{http_code}' "$URL/healthz")"
+          echo "$URL/healthz -> $code"
+          [ "$code" = "200" ] || { echo "::error::smoke test failed"; exit 1; }
