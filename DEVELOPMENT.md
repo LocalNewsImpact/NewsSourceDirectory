@@ -29,15 +29,21 @@ identity; Matt's is `matt@localnewsimpact.org`.
 
 **Deliverable** `schema/models_draft.py` reviewed and agreed.
 
-Open questions worth settling before code depends on them:
+The four open questions are now answered against all 8,561 coverage records —
+see [docs/schema-decisions.md](docs/schema-decisions.md):
 
-1. Is the identity rule right? `host + first meaningful path segment`, falling
-   back to `slug(name)|state` where there is no URL.
-2. Do `Medium` and `Category` stay separate axes, or collapse?
-3. Does `Outlet` carry one `state`, or is multi-state real for any outlet once
-   the bad merges are undone?
-4. Which coverage fields roll up to `Outlet` — `ownership`, `founded`,
-   `closed_date` are proposed.
+1. **Identity rule** — implemented in `schema/identity.py`, tested. Produces
+   2,809 outlets against the prototype's 2,103, leaving 167 for human review.
+2. **Medium and Category stay separate** — "Ethnic Outlets" and "Network Sites"
+   are orthogonal to medium.
+3. **`Outlet.state` is a single FK** — only 9 of 2,809 outlets span states and
+   only four are genuine.
+4. **Roll-ups chosen by measurement** — descriptive fields disagree 0–4% of the
+   time, per-observation fields 26–37%.
+
+**Remaining for a human:** read the models and say whether the shape is right.
+That is a judgement call about how the registry will be used, not something the
+data can settle.
 
 **Done when** the models are agreed and the first migration can be written.
 

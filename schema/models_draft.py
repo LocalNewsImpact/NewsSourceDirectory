@@ -5,6 +5,9 @@ against the real columns in mwe400/LocalNewsDatabase (outlets_clean.csv and
 coverage_clean.csv). See MIGRATION.md for why the prototype's outlet table
 cannot be imported as-is.
 
+The four questions this draft opened are now answered against the data — see
+docs/schema-decisions.md. Their conclusions are reflected below and noted inline.
+
 Three ideas run through it:
 
 1. CoverageRecord is ground truth. It is imported verbatim and never edited by
@@ -20,6 +23,8 @@ import uuid
 from django.db import models
 from simple_history.models import HistoricalRecords
 
+from schema.identity import identity_key  # noqa: F401  — used by rebuild_outlets
+
 # Fields written to the public export. Named explicitly so a future column
 # cannot be published by accident — see MIGRATION.md.
 PUBLIC_FIELDS = (
@@ -34,13 +39,17 @@ PUBLIC_FIELDS = (
     "county",
 )
 
-# Path segments that do not distinguish one outlet from another.
-GENERIC_PATH_SEGMENTS = {"", "news", "home", "index", "index.html"}
+# The identity rule lives in schema/identity.py so the same function is used by
+# rebuild_outlets, by tests, and by anything that needs to match an outlet later.
 
 
 class Medium(models.Model):
-    """Controlled vocabulary: Newspaper, Radio, Television, Online, Magazine,
-    Public Broadcasting. Replaces the 18 free-text values in the prototype."""
+    """Controlled vocabulary. Six values carry 8,965 of the 8,977 records that
+    have one: Newspaper, Television, Online, Radio, Magazine, Public Broadcasting.
+
+    The remainder are import damage (a header row, two URLs, a call sign) or TV
+    network variants that fold into Television. The network itself — NBC, CBS,
+    Fox — is deliberately not modelled: twelve records do not justify a field."""
 
     slug = models.SlugField(unique=True)
     label = models.CharField(max_length=64, unique=True)
@@ -54,8 +63,12 @@ class Medium(models.Model):
 
 
 class Category(models.Model):
-    """A second axis the prototype conflated with medium: 'Ethnic Outlets',
-    'Network Sites'. An outlet has one medium and any number of categories."""
+    """A second axis the prototype conflated with medium.
+
+    'Ethnic Outlets' (82) and 'Network Sites' (62) appear in the same column as
+    Newspaper and Radio, but describe something orthogonal: an ethnic newspaper
+    is still a newspaper. One column would force a choice between recording the
+    medium and recording the community served."""
 
     slug = models.SlugField(unique=True)
     label = models.CharField(max_length=64, unique=True)
@@ -128,15 +141,24 @@ class Outlet(models.Model):
     )
     categories = models.ManyToManyField(Category, blank=True, related_name="outlets")
 
+    # Single FK, not many-to-many. Under the corrected identity rule only 9 of
+    # 2,809 outlets span states, and only four of those are genuine — border
+    # towns and broadcast markets such as the La Crosse Tribune (MN/WI) and WRDW
+    # (GA/SC). Four cases do not justify the ambiguity; an outlet has a home
+    # state, and the breadth of what it covers is derivable from its coverage.
     state = models.ForeignKey(
         State, null=True, blank=True, on_delete=models.PROTECT, related_name="outlets"
     )
+    # City disagrees across an outlet's coverage 7% of the time, county 4%. These
+    # hold the primary; the rest stays on the coverage records.
     city = models.CharField(max_length=128, blank=True)
     county = models.CharField(max_length=128, blank=True)
 
-    # Outlet-level attributes that sit in coverage rows in the prototype and
-    # are rolled up here. Sparse in the source data (ownership 832/8561,
-    # founded 414/8561, closed_date 92/8561).
+    # Rolled up from coverage. These were chosen by measuring how often an
+    # outlet's own records disagree: ownership 0.4%, ownership_type 0%,
+    # newsbank_availability 0%, closed_date 1%, founded 2%. Descriptive
+    # attributes of the outlet barely vary, so they belong here. Sparse in the
+    # source data (ownership 832/8561, founded 414/8561, closed_date 92/8561).
     ownership = models.CharField(max_length=255, blank=True)
     ownership_type = models.CharField(max_length=128, blank=True)
     founded = models.CharField(max_length=32, blank=True)
@@ -202,11 +224,12 @@ class CoverageRecord(models.Model):
     city = models.CharField(max_length=128, blank=True)
     notes = models.TextField(blank=True)
 
-    # New Jersey municipality identifiers, present on 4,480 rows.
+    # These stay here rather than rolling up, because they are per-observation
+    # by nature and disagree within an outlet 37% and 26% of the time. mun_id and
+    # gnis identify which municipality a New Jersey record covers; flattening
+    # them to the outlet would destroy exactly the information they carry.
     mun_id = models.CharField(max_length=64, blank=True)
     gnis = models.CharField(max_length=64, blank=True)
-
-    # Montana-only measures, present on 1,117 rows.
     domains_set_length = models.FloatField(null=True, blank=True)
     article_length = models.FloatField(null=True, blank=True)
 
