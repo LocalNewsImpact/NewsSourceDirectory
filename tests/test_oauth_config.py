@@ -83,3 +83,25 @@ class TestProviderConfiguration:
 
         config = module.build_socialaccount_providers("id", "secret", "localnewsimpact.org")
         assert config["google"]["AUTH_PARAMS"]["hd"] == "localnewsimpact.org"
+
+
+class TestAdminLoginRouting:
+    """Django's admin form has no Google button, so leaving /admin/login/ in
+    place is a password box with no valid password behind it."""
+
+    def test_the_admin_login_redirects_when_google_is_configured(self, client, settings):
+        if not settings.GOOGLE_SIGN_IN_CONFIGURED:
+            pytest.skip("provider unconfigured locally; the redirect is not installed")
+        response = client.get("/admin/login/")
+        assert response.status_code == 302
+        assert response.headers["Location"].startswith("/accounts/login/")
+
+    def test_the_password_form_remains_when_it_is_not(self, client, settings):
+        """The escape hatch: blank the client id and the ordinary form returns,
+        so a broken OAuth client cannot lock everyone out."""
+        if settings.GOOGLE_SIGN_IN_CONFIGURED:
+            pytest.skip("provider configured; the form is deliberately bypassed")
+        assert client.get("/admin/login/").status_code == 200
+
+    def test_login_required_sends_people_somewhere_usable(self, settings):
+        assert settings.LOGIN_URL == "/accounts/login/"
