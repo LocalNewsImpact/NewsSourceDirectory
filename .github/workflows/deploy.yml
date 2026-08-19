@@ -126,6 +126,6 @@ jobs:
         run: |
           URL="$(gcloud run services describe "$SERVICE" --region "$REGION" \
                   --project "$PROJECT_ID" --format='value(status.url)')"
-          code="$(curl -s -o /dev/null -w '%{http_code}' "$URL/healthz")"
-          echo "$URL/healthz -> $code"
+          code="$(curl -s -o /dev/null -w '%{http_code}' "$URL/_health")"
+          echo "$URL/_health -> $code"
           [ "$code" = "200" ] || { echo "::error::smoke test failed"; exit 1; }
