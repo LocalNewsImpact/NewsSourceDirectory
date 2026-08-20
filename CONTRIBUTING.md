@@ -6,7 +6,7 @@
 
 | | Version | Why |
 |---|---|---|
-| Python | 3.11 or later | `requires-python = ">=3.11"` in `pyproject.toml` |
+| Python | 3.14 | what CI and the deployed image both run; `pyproject.toml` allows >=3.11 but only 3.14 is tested |
 | Docker | any current release | runs Postgres 16; nothing else needs it |
 | Node | 22 | matches the version CI pins; the only package is `minisearch`, used to build the search index |
 
@@ -166,7 +166,7 @@ Set on the branch, not by convention:
 | Direct pushes | blocked — pull request required |
 | Approvals | 1, from a CODEOWNER |
 | Stale approvals | dismissed when you push again |
-| Required checks | Lint, Tests, Integration, Data quality, Public feed, Pages payload |
+| Required checks | Lint, Tests, Integration, Data quality, Public feed, Image builds, Pages payload |
 | Branch must be current with `main` | yes |
 | Unresolved conversations | block merge |
 | Force push / delete `main` | blocked |

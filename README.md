@@ -14,6 +14,7 @@ inventory and the data problems that have to be fixed on the way.
 | | |
 |---|---|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Local environment, tests, and the branch-to-deploy workflow |
+| [docs/pipeline.md](docs/pipeline.md) | Local tests → CI → deploy → publish: what each gate protects |
 | [docs/reviewing.md](docs/reviewing.md) | **For reviewers.** Working the merge queue, split and merge, publishing |
 | [docs/runbook.md](docs/runbook.md) | Rollback, feed recovery, backup and restore, granting access |
 | [docs/schema-decisions.md](docs/schema-decisions.md) | Why the models are shaped this way, argued from the data |
@@ -299,7 +300,9 @@ approve, then merging deploys.
 
 ## CI and data quality
 
-`.github/workflows/ci.yml` runs six jobs on **every branch**, not only on pull requests, so failures surface before a PR exists.
+`.github/workflows/ci.yml` runs seven jobs on **every branch**, not only on pull
+requests, so failures surface before a PR exists. [docs/pipeline.md](docs/pipeline.md) walks the whole chain from a local edit to
+production.
 
 | Job | Checks |
 |---|---|
@@ -308,6 +311,7 @@ approve, then merging deploys.
 | Integration | tests against a real Postgres 16 service |
 | Data quality | the rules against a fixture of real prototype data |
 | Public feed | feed builds, carries no admin columns, is reproducible |
+| Image builds | both Docker stages build; the container starts and `/_health` returns 503 |
 | Pages payload | the mockup stays servable, internal doc links resolve |
 
 ### One rule set, two callers
@@ -337,7 +341,7 @@ sampled from the real prototype data and chosen to contain every known defect.
 The data-quality job asserts the run **fails** and that each named rule fires. A
 clean run there means detection has regressed, not that the data got better.
 
-Against the full prototype dataset the rules currently report:
+Against the prototype dataset **as first imported**, the rules reported:
 
 | Rule | Errors |
 |---|---|

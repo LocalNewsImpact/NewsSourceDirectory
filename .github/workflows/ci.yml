@@ -1,3 +1,5 @@
+# Python here must match Dockerfile.base. Testing on one runtime and
+# deploying another is how a green suite ships a broken container.
 name: CI
 
 on:
@@ -20,7 +22,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.14"
       - name: Install the pinned ruff
         run: pip install "$(grep -oE '^ruff==[0-9.]+' requirements-dev.txt)"
       - name: ruff check
@@ -35,7 +37,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.14"
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
@@ -62,7 +64,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.14"
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
@@ -78,7 +80,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.14"
       # The fixture is real prototype data and still carries its defects, so it
       # is expected to FAIL. This job asserts the rules still catch them —
       # a clean run here would mean the checks have stopped working.
@@ -110,7 +112,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.14"
       - uses: actions/setup-node@v7
         with:
           node-version: "22"

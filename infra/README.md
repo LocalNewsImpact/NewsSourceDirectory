@@ -24,8 +24,8 @@ Two, so that changing a template does not reinstall 319MB of libraries.
 
 | | Rebuilt when | Size |
 |---|---|---|
-| `sources-admin-base:<hash>` | `requirements.txt` changes | 394MB |
-| `sources-admin:<sha>` | every deploy | +4MB |
+| `sources-admin-base:<hash>` | `requirements.txt` changes | 382MB |
+| `sources-admin:<sha>` | every deploy | +5MB |
 
 The base is tagged with a hash of `requirements.txt`, so "have the dependencies
 changed?" is a registry lookup rather than a guess. An application-only deploy
