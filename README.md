@@ -27,14 +27,14 @@ inventory and the data problems that have to be fixed on the way.
 ## Architecture
 
 ```
-Workspace group --IAP--> Django admin (Cloud Run) --> Cloud SQL   [web project]
-                                                          |
-                                             publish job  |
-                                                          v
-                          GCS:  widget.js, sites.json  (204KB gzipped)
-                                                          |
-                                    WP page <-------------+-------------> crawler
-                                 [lnic-directory]                        (later)
+Workspace account --allauth--> Django admin (Cloud Run) --> Cloud SQL  [own project]
+   (hd + email_verified                                            |
+    verified server-side)                        publish workflow  |
+                                                                   v
+                        GitHub Pages (gh-pages):  manifest.json + hashed payloads
+                                                                   |
+                                     WP page <--------------------+------> crawler
+                                  [lnic_directory]                        (one-way, later)
 ```
 
 ## Stack
@@ -46,11 +46,11 @@ Workspace group --IAP--> Django admin (Cloud Run) --> Cloud SQL   [web project]
 | Bulk edit | `django-import-export` | Reads the source `.xlsx`/`.csv` with a dry-run diff before commit |
 | Audit | `django-simple-history` | Per-field history and revert, essential during remediation |
 | ETL | management commands run as **Cloud Run Jobs** | Same image, different entrypoint; no request timeout |
-| Auth | IAP restricted to a Google Workspace group | Editors need no GCP IAM beyond `iap.httpsResourceAccessor` |
-| Public widget | Vite + **Preact** + MiniSearch | ~30KB bundle; React would outweigh the data |
-| Hosting | Cloud Run (admin), GCS (widget) | Scale-to-zero admin, static public side |
+| Auth | **django-allauth**, Google sign-in restricted to the hosted domain | IAP cannot admit accounts outside the org, which the researcher portal needs — see [docs/auth.md](docs/auth.md) |
+| Public widget | **plain JavaScript, no build step** | One table does not justify a toolchain in the WordPress repo |
+| Hosting | Cloud Run (admin), GitHub Pages (feed) | Scale-to-zero admin; the org's Domain Restricted Sharing policy refuses a public GCS bucket |
 
-Running cost: **~$15/month**. See [Cost](#cost).
+Running cost: **~$2–5/month**. See [Cost](#cost).
 
 ### Database sizing
 
@@ -71,24 +71,22 @@ headroom. Nothing in the architecture changes either way.
 
 The admin is served at **`sources.localnewsimpact.org`**, not a `run.app` URL.
 
-That requires a global external Application Load Balancer in front of Cloud Run:
-IAP on a bare Cloud Run service only protects the `run.app` hostname, and Cloud
-Run domain mappings do not carry IAP. So the admin path is
+A **Cloud Run domain mapping** provides it, at no cost:
 
 ```
 sources.localnewsimpact.org
-  -> A record (Route 53)      overrides the *.localnewsimpact.org wildcard
-  -> global external ALB      Google-managed certificate, IAP on the backend
-  -> serverless NEG
-  -> Cloud Run (ingress: internal-and-cloud-load-balancing)
+  -> CNAME (Route 53)          overrides the *.localnewsimpact.org wildcard
+  -> Cloud Run domain mapping  Google-managed certificate
+  -> Cloud Run service         ingress: all
 ```
 
-The ingress setting matters as much as IAP: without it the `run.app` URL stays
-reachable and walks straight past the load balancer, and therefore past IAP.
+An earlier draft put a global external Application Load Balancer here, because
+IAP on a bare Cloud Run service protects only the `run.app` hostname and domain
+mappings do not carry IAP. Choosing allauth over IAP removed the reason for the
+load balancer and the ~$18/month forwarding rule with it.
 
-This costs ~$18/month for the forwarding rule. The **feed is unaffected** — it
-still serves directly from the bucket, so the charge is paid once, for the admin,
-not for the public side.
+Because ingress is open, authentication is entirely the application's job — see
+[Security notes](#security-notes).
 
 DNS is Route 53, and `*.localnewsimpact.org` currently resolves to the WordPress
 host (50.16.132.48). A record for the exact name takes precedence, so no wildcard
@@ -153,11 +151,17 @@ included. The browser loads it once and does its own search, filtering, sorting
 and CSV export. No API service, no read replica, no query load.
 
 **No Cloud CDN in front of the feed.** It requires an external Application Load
-Balancer whose forwarding rule alone is ~$18/month. The feed serves straight from
-the bucket with CORS, and at 73KB gzipped a CDN buys almost nothing. If a custom
-domain for the feed is wanted later, Cloudflare's free tier goes in front.
+Balancer whose forwarding rule alone is ~$18/month. The feed serves from GitHub
+Pages, which is already a CDN, already sends `access-control-allow-origin: *`,
+and costs nothing. At 73KB gzipped there is nothing left for a CDN to buy.
 
-The **admin** is the exception, and does need a load balancer — see below.
+It went to Pages rather than a GCS bucket because the organisation's Domain
+Restricted Sharing policy refuses `allUsers`, so no bucket in this org can be
+made public. If a custom domain for the feed is wanted later, it must actually
+serve the feed — a name that merely resolves through the
+`*.localnewsimpact.org` wildcard lands on the WordPress host, whose certificate
+does not cover it, and the browser reports a bare network error rather than a
+404.
 
 ## Data model
 
@@ -354,11 +358,12 @@ Against the prototype dataset **as first imported**, the rules reported:
 That 222 is the same figure the migration analysis arrived at independently, which
 is the point: the defect is now a test rather than a paragraph.
 
-### Not yet wired
+### The whole chain
 
-Deployment. When the Django app and GCP project exist, deploys should run from
-GitHub Actions via Workload Identity Federation — as the crawler already does —
-so no human holds production write access.
+[docs/pipeline.md](docs/pipeline.md) walks it end to end: what runs locally, what
+each CI job protects against, the deploy sequence, and how the feed publishes.
+Deploys run from GitHub Actions via Workload Identity Federation, so no human
+holds production write access.
 
 ## Cost
 
@@ -367,7 +372,7 @@ so no human holds production write access.
 | Database — `directory` on the crawler's `mizzou-db-prod` | **$0** |
 | Admin hostname — Cloud Run domain mapping, not a load balancer | **$0** |
 | Cloud Run (scale-to-zero) | $0–2 |
-| Feed hosting on AWS | ~$0.10 |
+| Feed hosting — GitHub Pages | **$0** |
 | Artifact Registry, Secret Manager, logs | <$1 |
 | **Total** | **~$2–5** |
 
@@ -379,14 +384,23 @@ nothing — so neither charge was buying anything this project actually needed.
 
 ## Security notes
 
-Two things that are easy to get wrong and are not optional:
+Ingress is open, so the application is the only thing standing in front of the
+admin. Three controls carry that weight:
 
-1. Verify the **`X-Goog-IAP-JWT-Assertion` signature**, not the plain
-   `X-Goog-Authenticated-User-Email` header, which is spoofable by anything that
-   reaches the service directly.
-2. Set Cloud Run ingress to **internal-and-load-balancer**, so the service cannot
-   be reached except through IAP. Without this, point 1 is the only thing between
-   the internet and the admin.
+1. **The hosted domain is verified server-side.** Google's `hd` parameter is a
+   *hint* supplied by the client; the allauth adapter checks the `hd` claim and
+   `email_verified` on every login. Trusting the parameter would make the
+   restriction decorative.
+2. **The feed is allowlisted, not filtered.** `export_columns_allowlisted` fails
+   the publish on any column not on the public list, so a new model field cannot
+   leak by being added upstream. CI asserts this on every branch.
+3. **The database role is boxed in.** `directory` owns only its own database,
+   holds no role memberships, and cannot connect to the crawler's `mizzou`
+   database on the same instance.
+
+An earlier draft of this file described verifying `X-Goog-IAP-JWT-Assertion` and
+setting ingress to `internal-and-load-balancer`. Neither applies: there is no IAP
+and no load balancer.
 
 ## Status
 
