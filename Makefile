@@ -116,6 +116,15 @@ feed: $(VENV) ## Build the public feed from the fixture into dist/
 	$(PY) -m feed tests/fixtures/outlets_sample.csv \
 	  --coverage tests/fixtures/coverage_sample.csv --out dist/feed --allow-errors
 
+.PHONY: coverage
+coverage: $(VENV) db-up ## Whole suite with a coverage report and the floor
+	$(PY) -m pytest --cov --cov-report=term
+
+.PHONY: e2e
+e2e: node_modules ## Browser tests against the mockup and the committed feed
+	npx playwright install --with-deps chromium
+	npx playwright test
+
 .PHONY: check
 check: lint test test-integration ## Everything CI runs
 

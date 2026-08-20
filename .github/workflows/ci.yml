@@ -70,8 +70,16 @@ jobs:
         run: pip install -r requirements-dev.txt
       - name: Migrations are complete and committed
         run: python manage.py makemigrations --check --dry-run
-      - name: Integration tests
-        run: python -m pytest -m integration
+      # The whole suite, not just the integration marker: a coverage number from
+      # a partial run is worse than none. The floor lives in pyproject.toml and
+      # fails the job if it drops.
+      - name: Integration tests and coverage floor
+        run: python -m pytest --cov --cov-report=term --cov-report=xml
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage
+          path: coverage.xml
 
   data-quality:
     name: Data quality
@@ -211,6 +219,30 @@ jobs:
           # check is not actually checking anything.
           [ "$code" = "503" ] || { echo "::error::expected 503, got $code"; exit 1; }
           docker rm -f smoke
+
+  e2e:
+    name: Browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci || npm install
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+      # Drives the mockup against the committed feed: metric tiles, the default
+      # tab, search, facets and chips, card/table views, the lazily loaded
+      # coverage payload, and CSV export. Assertions are relative, so
+      # republishing the feed does not turn this red.
+      - name: Directory renders and responds
+        run: npx playwright test
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-trace
+          path: test-results/
 
   pages:
     name: Pages payload

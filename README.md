@@ -304,7 +304,7 @@ approve, then merging deploys.
 
 ## CI and data quality
 
-`.github/workflows/ci.yml` runs seven jobs on **every branch**, not only on pull
+`.github/workflows/ci.yml` runs eight jobs on **every branch**, not only on pull
 requests, so failures surface before a PR exists. [docs/pipeline.md](docs/pipeline.md) walks the whole chain from a local edit to
 production.
 
@@ -316,6 +316,7 @@ production.
 | Data quality | the rules against a fixture of real prototype data |
 | Public feed | feed builds, carries no admin columns, is reproducible |
 | Image builds | both Docker stages build; the container starts and `/_health` returns 503 |
+| Browser | the directory renders, search narrows, export produces a CSV |
 | Pages payload | the mockup stays servable, internal doc links resolve |
 
 ### One rule set, two callers

@@ -1,131 +1,134 @@
-# From a local edit to production
+# Pipeline
 
-Three gates, each catching something the next one cannot afford to discover.
-Nothing here is aspirational — every check described is in
-`.github/workflows/` today.
+Three gates between an edit and production.
 
 ```
-local            make check
+local          make check
   ↓ push (any branch)
-GitHub CI        7 jobs, on every push, not only pull requests
-  ↓ merge to main (pull request + 1 approval required)
-Deploy           build → migrate → shift traffic → prove it is reachable
+CI             8 required jobs
+  ↓ merge to main (pull request, 1 approval)
+Deploy         build → migrate → candidate revision → health check → shift traffic
   ↓
-Publish feed     static payload to gh-pages
+Publish        static feed to gh-pages
 ```
-
----
 
 ## 1. Local
 
 ```bash
-make check     # exactly what CI runs: lint, format, unit, integration
+make check        # lint, format, unit, integration — what CI runs
+make coverage     # whole suite with the coverage floor
+make e2e          # browser tests against the mockup
 ```
 
-Tests are split by marker rather than by directory:
+Tests are split by pytest marker:
 
-| | Needs | Why the split |
+| Suite | Count | Requires |
 |---|---|---|
-| Unit — 163 | the virtualenv | A new contributor gets a green run before Docker works |
-| Integration — 118 | Postgres on 5434 | Real database behaviour, not a mock of it |
+| Unit | 163 | virtualenv |
+| Integration | 118 | Postgres on port 5434 |
 
-`make test` runs the first; `make test-integration` runs the second and starts
-the container for you. `make hooks` optionally runs lint and the unit tests on
-every commit.
+The split lets `make test` pass before Docker is working. `make test-integration`
+starts the container itself.
 
-The local Postgres is a container on port **5434** — chosen because 5432 is
-usually a system Postgres and 5433 belongs to the crawler's test container. See
-[CONTRIBUTING.md](../CONTRIBUTING.md) for the trap where two checkouts share one
-database.
+Port 5434 avoids 5432 (system Postgres) and 5433 (the crawler's test container).
+Two checkouts of this repository share one database container — see
+[CONTRIBUTING.md](../CONTRIBUTING.md).
 
-## 2. GitHub CI
+## 2. CI
 
-Runs on **every push to every branch**, and on pull requests. Failures surface
-before a pull request exists rather than after review starts.
+Runs on every push to every branch, and on pull requests. All eight jobs are
+required to merge.
 
-| Job | What it is actually protecting against |
+| Job | Fails when |
 |---|---|
-| **Lint** | formatting drift; `ruff check` and `ruff format --check` against the pinned version |
-| **Tests** | 163 unit tests over the rules, the identity key, the feed builder and the mockup |
-| **Integration** | 118 tests against a real Postgres 16 service — **and `makemigrations --check`**, so a model change cannot merge without its migration |
-| **Data quality** | the rules still detect known defects (see below) |
-| **Public feed** | an admin column reaching the public payload; a feed that is not reproducible; coverage rows that do not join |
-| **Image builds** | a container that does not build, or one that lies about its health |
-| **Pages payload** | the mockup becoming unservable; a documentation link pointing at nothing |
+| Lint | `ruff check` or `ruff format --check` fails |
+| Tests | any of 163 unit tests fails |
+| Integration | any of 118 integration tests fails, a model change has no migration (`makemigrations --check`), or coverage drops below the floor |
+| Data quality | the defect fixture passes, or one of four named rules stops firing |
+| Public feed | the feed carries a non-allowlisted column, is not byte-reproducible, or has coverage rows that do not join to an outlet |
+| Image builds | either Docker stage fails, or the container's `/_health` does not return 503 without a database |
+| Browser | the directory does not render, search does not narrow the set, or export produces no CSV |
+| Pages payload | the mockup is missing or oversized, or a documentation link points at a missing file |
 
-CI runs on the same Python the image ships. Both are pinned to the same version,
-and they are changed together — testing on one runtime and deploying another is
-how a working test suite ships a broken container.
+Two jobs assert failure rather than success:
 
-### Two jobs assert the opposite of what you would expect
+- **Data quality** runs the rules against `tests/fixtures/`, which is 32 outlets
+  and 88 coverage records containing every known defect. The job fails if the run
+  is clean, and requires `no_placeholder_domain`, `merge_requires_review`,
+  `no_header_artifacts` and `no_url_in_medium` to fire by name. A clean run means
+  detection regressed.
+- **Image builds** starts the container with an unreachable database and requires
+  `/_health` to return **503**. A 200 would mean the health check does not query
+  the database, and Cloud Run would route traffic to a revision that cannot
+  serve.
 
-**Data quality asserts the fixture FAILS.** `tests/fixtures/` holds 32 outlets
-and 88 coverage records sampled from real prototype data and chosen to contain
-every known defect. The job fails if the run comes back clean, and additionally
-requires four rules to fire by name. A green run there would mean detection had
-regressed, not that the data improved.
+CI and `Dockerfile.base` pin the same Python version. Change them together.
 
-**Image builds asserts `/_health` returns 503.** The container is started with a
-deliberately unreachable database. 503 is the correct answer — the service is up
-and honest about being unable to serve. A 200 would mean the health check does
-not check anything, which is worse than having none, because Cloud Run would keep
-routing traffic to a broken revision.
+### Rules run in two places
 
-### One rule set, two callers
+`checks/rules.py` holds pure functions. CI runs them against fixtures; `publish`
+runs the same functions against the live export. There is no second code path to
+the feed.
 
-The rules in [`checks/rules.py`](../checks/rules.py) are pure functions. CI runs
-them against fixtures; `publish` runs the same functions against the live export.
-A defect cannot reach the public feed by taking a different code path.
+`export_columns_allowlisted` fails a publish on any column not in
+`PUBLIC_FIELDS`. This is what prevents a new model field reaching the public
+directory.
 
-`export_columns_allowlisted` is the one that matters most: a field not on the
-public allowlist fails the publish. That is what stops an admin-only column
-reaching the public site when someone adds it to the model.
+## 3. Deploy
 
-## 3. Deploy to GCP
+Triggered by a merge to `main`. Skipped when every changed path is documentation
+— `paths-ignore` covers `**.md`, `docs/`, `mockup/`, issue templates and the
+pre-commit config, none of which are in the image.
 
-Triggered by a merge to `main`. Documentation-only merges are skipped —
-`paths-ignore` covers `**.md`, `docs/`, the mockup, issue templates and the
-pre-commit config, because none of them are in the image.
+| Step | Detail |
+|---|---|
+| 1. Authenticate | Workload Identity Federation; no stored credentials, provider bound to this repository |
+| 2. Dependency image | Tagged with a hash of `requirements.txt`; rebuilt only when that file changes |
+| 3. Application image | Tagged with the commit SHA; ~5MB on top of the base |
+| 4. Migrate | Cloud Run **job**, before traffic shifts, so two revisions cannot migrate concurrently |
+| 5. Deploy | `--no-traffic --tag candidate` — the revision serves nobody yet |
+| 6. Check reachability | Fails if no `run.invoker` binding exists |
+| 7. Prove the candidate | `/_health` on the candidate's tagged URL must return 200 |
+| 8. Shift traffic | `update-traffic --to-latest`, then smoke test the public URL |
 
-1. **Authenticate** via Workload Identity Federation. No stored credentials, and
-   the provider is bound to this repository by an attribute condition.
-2. **Dependency image**, tagged with a hash of `requirements.txt`. Rebuilt only
-   when that file changes, so "have the dependencies changed?" is a registry
-   lookup rather than a guess. A normal deploy pushes about 4MB.
-3. **Build and push** the application image, tagged with the commit SHA.
-4. **Migrate and configure**, as a Cloud Run *job*, **before traffic shifts** —
-   never as a side effect of the service starting, because two revisions racing
-   to migrate is a bad night.
-5. **Deploy** the service.
-6. **Assert the service is reachable.** `gcloud` reports a refused IAM binding as
-   a *warning* and exits zero; the first real deploy therefore reported success
-   while every request was rejected with 403 before reaching Django. This step
-   fails the build instead.
-7. **Smoke test** `/_health` for 200.
+Step 6 exists because `gcloud` reports a refused IAM binding as a warning and
+exits 0. The first production deploy therefore reported success while every
+request returned 403.
 
-Rolling back is a traffic shift, not a rebuild — but migrations do not roll back
-with it. See [runbook.md](runbook.md).
+Step 7 is what a staging environment would otherwise do. If the candidate fails
+its health check, traffic stays on the previous revision.
 
-## 4. Publishing the feed
+Rollback is a traffic shift, not a rebuild. Migrations do not roll back with it —
+see [runbook.md](runbook.md).
 
-Separate from the deploy, because the public site reads a static payload rather
-than the database. `publish-qa.yml` fires on:
+## 4. Publish
 
-- **the admin's "Publish the public feed now" action** (a repository dispatch)
-- **every completed Deploy**
-- **a daily schedule**, 11:00 UTC — before anyone starts editing
+The public site reads a static payload, not the database, so publishing is
+separate from deploying. `publish-qa.yml` runs on:
+
+- the admin's "Publish the public feed now" action (a repository dispatch)
+- completion of any Deploy run
+- a daily schedule at 11:00 UTC
 - manual dispatch
 
-It builds the feed, runs the same rules against it, and force-pushes an orphan
-`gh-pages` branch. That branch therefore has no history, which matters when
-something wrong is published — see [runbook.md](runbook.md).
+It builds the feed, applies the same rules, and force-pushes an orphan
+`gh-pages` branch. That branch holds one commit, so a bad publish cannot be
+reverted with git — see [runbook.md](runbook.md).
 
-## What is not gated
+## Coverage
 
-Worth knowing where the guarantees stop:
+The Integration job measures the whole suite and fails below the floor in
+`pyproject.toml`. Current: **80.0%** measured, **78%** floor. The floor is a
+ratchet against decay, not a target.
 
-- **The mockup and the WordPress widget are not tested end to end.** CI checks the
-  mockup file is present and servable, not that it renders.
-- **No deploy runs against a staging environment.** `main` goes to production.
-  The gates above are what stands in for a staging soak.
-- **Nothing measures test coverage.** 281 tests run; what they miss is unknown.
+At 0%: `publish.py`, `ensure_admin.py`, `check_data.py` — the commands that
+write the public feed, grant admin access, and report data quality. Cover these
+before raising the floor.
+
+## Not covered
+
+| Gap | Consequence |
+|---|---|
+| The WordPress plugin has no tests | The Browser job drives the mockup, which shares the plugin's logic, but the plugin lives in `LocalNewsImpact/lnic-wordpress` and is untested there |
+| No staging environment | A candidate revision passing one health check is the substitute; there is no soak |
+| Migrations are not rehearsed | They run against production before traffic shifts, and rolling traffic back does not revert them |
