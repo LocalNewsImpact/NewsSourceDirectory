@@ -3,9 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:index": "node tools/build-search-index.mjs dist/feed"
+    "build:index": "node tools/build-search-index.mjs dist/feed",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "minisearch": "^7.1.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0"
   }
 }

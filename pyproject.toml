@@ -21,3 +21,17 @@ DJANGO_SETTINGS_MODULE = "config.settings"
 markers = [
     "integration: needs a live Postgres (make test-integration)",
 ]
+
+# Coverage is measured, not enforced by default: --cov slows the local loop and
+# a partial run reports a misleading number. `make coverage` and CI pass the
+# flags explicitly, over the whole suite.
+[tool.coverage.run]
+source = ["directory", "checks", "feed", "config"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.coverage.report]
+# The floor is a ratchet, not a target. It sits just under the measured figure
+# so coverage cannot quietly rot; raise it when real work lifts the number.
+fail_under = 78
+show_missing = true
+skip_covered = true

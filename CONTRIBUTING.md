@@ -166,7 +166,7 @@ Set on the branch, not by convention:
 | Direct pushes | blocked — pull request required |
 | Approvals | 1, from a CODEOWNER |
 | Stale approvals | dismissed when you push again |
-| Required checks | Lint, Tests, Integration, Data quality, Public feed, Image builds, Pages payload |
+| Required checks | Lint, Tests, Integration, Data quality, Public feed, Image builds, Browser, Pages payload |
 | Branch must be current with `main` | yes |
 | Unresolved conversations | block merge |
 | Force push / delete `main` | blocked |

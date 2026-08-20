@@ -14,3 +14,11 @@ staticfiles/
 # NOT data/ — the publish workflow commits it, and Pages serves it from there.
 # It was ignored briefly while testing locally, which made the first publish
 # fail with "the following paths are ignored by one of your .gitignore files".
+
+# Playwright and coverage artefacts
+/test-results/
+/playwright-report/
+/blob-report/
+.coverage
+coverage.xml
+htmlcov/

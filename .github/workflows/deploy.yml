@@ -125,10 +125,14 @@ jobs:
           gcloud run jobs execute "${SERVICE}-release" \
             --region "$REGION" --project "$PROJECT_ID" --wait
 
-      - name: Deploy the service
+      # There is no staging environment. Instead the revision is deployed with no
+      # traffic and proved on its own tagged URL first, so a broken build never
+      # serves a request: if the check below fails, traffic stays where it is.
+      - name: Deploy the revision without traffic
         if: steps.app.outputs.ready == 'true'
         run: |
           gcloud run deploy "$SERVICE" \
+            --no-traffic --tag candidate \
             --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" \
             --service-account directory-run@lnic-source-directory.iam.gserviceaccount.com \
             --set-secrets "DJANGO_SECRET_KEY=django-secret-key:latest,DB_PASSWORD=db-password:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,GITHUB_DISPATCH_TOKEN=github-dispatch-token:latest" \
@@ -154,11 +158,33 @@ jobs:
           fi
           echo "invoker binding present"
 
-      - name: Smoke test
+      - name: Prove the candidate before it serves anyone
+        if: steps.app.outputs.ready == 'true'
+        run: |
+          URL="$(gcloud run services describe "$SERVICE" --region "$REGION" \
+                  --project "$PROJECT_ID" --format=json \
+                  | jq -r '.status.traffic[] | select(.tag == "candidate") | .url')"
+          [ -n "$URL" ] || { echo "::error::no candidate URL"; exit 1; }
+          code=""
+          for _ in $(seq 1 10); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' "$URL/_health" || true)"
+            [ "$code" = "200" ] && break
+            sleep 3
+          done
+          echo "candidate $URL/_health -> $code"
+          [ "$code" = "200" ] || { echo "::error::candidate failed its health check; traffic not shifted"; exit 1; }
+
+      - name: Shift traffic to it
+        if: steps.app.outputs.ready == 'true'
+        run: |
+          gcloud run services update-traffic "$SERVICE" \
+            --region "$REGION" --project "$PROJECT_ID" --to-latest
+
+      - name: Smoke test what the public now gets
         if: steps.app.outputs.ready == 'true'
         run: |
           URL="$(gcloud run services describe "$SERVICE" --region "$REGION" \
                   --project "$PROJECT_ID" --format='value(status.url)')"
           code="$(curl -s -o /dev/null -w '%{http_code}' "$URL/_health")"
           echo "$URL/_health -> $code"
-          [ "$code" = "200" ] || { echo "::error::smoke test failed"; exit 1; }
+          [ "$code" = "200" ] || { echo "::error::smoke test failed after traffic shift"; exit 1; }
