@@ -1,42 +1,54 @@
-# Dependency updates arrive as pull requests, so they go through the same CI and
-# review as anything else. Weekly rather than daily: this project has one
-# deployment and a flood of PRs is how updates start being ignored.
+# One pull request per ecosystem, not one per package.
+#
+# The first run of this file produced twelve pull requests, because only Django
+# was grouped. Twelve PRs is twelve CI runs, twelve approvals and twelve merges
+# to move about forty lines. Every ecosystem now has a catch-all group, and they
+# share one schedule, so a month's updates arrive together and are tested once.
+#
+# Security advisories are exempt from grouping by design and will still arrive on
+# their own. That is the behaviour worth keeping.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     groups:
-      # Django and its immediate ecosystem move together; separate PRs for each
-      # produce conflicts that have to be resolved by hand.
-      django:
-        patterns:
-          - django
-          - django-*
-    labels:
-      - dependencies
+      python:
+        patterns: ["*"]
+    labels: [dependencies]
 
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: monthly
-    open-pull-requests-limit: 2
-    labels:
-      - dependencies
+      day: monday
+    open-pull-requests-limit: 1
+    groups:
+      javascript:
+        patterns: ["*"]
+    labels: [dependencies]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
-    labels:
-      - dependencies
+      day: monday
+    open-pull-requests-limit: 1
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: [dependencies]
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: monthly
-    labels:
-      - dependencies
+      day: monday
+    open-pull-requests-limit: 1
+    groups:
+      images:
+        patterns: ["*"]
+    labels: [dependencies]
