@@ -1,24 +1,24 @@
 # Runtime. Bounds rather than pins until M2 installs them for real and a lock
 # file exists.
 
-Django>=5.1,<6
+Django>=5.2.17,<6
 psycopg[binary]>=3.2
-gunicorn>=23.0
+gunicorn>=26.0.0
 whitenoise>=6.8
 dj-database-url>=2.3
 
 # The admin is most of the application.
-django-import-export>=4.3      # bulk CSV/xlsx with a dry-run diff
-django-simple-history>=3.8     # per-field history and revert
+django-import-export>=4.4.1      # bulk CSV/xlsx with a dry-run diff
+django-simple-history>=3.13.0     # per-field history and revert
 # The [socialaccount] extra, not the bare package. The Google provider needs
 # requests and PyJWT[crypto] to verify the ID token signature, and neither is a
 # dependency of django-allauth itself. Declaring them one production crash at a
 # time is how this was discovered twice.
-django-allauth[socialaccount]>=65.3
+django-allauth[socialaccount]>=65.19.1
 
 # Import pipeline.
 pandas>=2.2
-openpyxl>=3.1                  # .xlsx sources
+openpyxl>=3.1.5                  # .xlsx sources
 
 # No boto3: the feed publishes to GitHub Pages, committed by a workflow, not to
 # S3. It was 30MB of a library nothing imports.

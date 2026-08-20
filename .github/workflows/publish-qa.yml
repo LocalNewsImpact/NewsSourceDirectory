@@ -56,7 +56,7 @@ jobs:
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -64,12 +64,12 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
 
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: projects/666766099662/locations/global/workloadIdentityPools/github/providers/github
           service_account: github-deploy@lnic-source-directory.iam.gserviceaccount.com
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
 
       - name: Start the Cloud SQL proxy
         run: |
