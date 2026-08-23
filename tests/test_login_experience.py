@@ -91,14 +91,29 @@ class TestSignInPage:
         """It is the front door; an unstyled default reads as broken."""
         response = client.get("/accounts/login/")
         assert b"News Source Directory" in response.content
-        assert b"<style>" in response.content
+        assert b"auth-card" in response.content
 
-    def test_it_uses_the_site_typefaces(self, client):
-        """Matching localnewsimpact.org, so the admin reads as part of the same
-        site rather than a Django install that happens to share the domain."""
+    def test_it_wears_the_console_theme(self, client):
+        """The backend is reached from Datadesk's navigation, so it looks
+        like Datadesk. The stylesheets are linked from that service rather
+        than copied here: the tokens are one file in one repository, and a
+        second copy is how two consoles drift into designs that nearly
+        agree.
+
+        The public directory widget is the other half of this decision and
+        goes the other way — it matches localnewsimpact.org, and nothing
+        here should change that.
+        """
         content = client.get("/accounts/login/").content
-        assert b"Montserrat" in content
-        assert b"Lato" in content
+        for sheet in (b"tokens.css", b"auth.css", b"fonts.css"):
+            assert sheet in content, sheet
+        assert b"datadesk.localnewsimpact.org" in content
+
+    def test_it_offers_the_way_back_to_the_other_console(self, client):
+        """Arriving from Datadesk's Sources group, a reader should be able
+        to get back without the browser's history."""
+        content = client.get("/accounts/login/").content
+        assert b"https://datadesk.localnewsimpact.org/" in content
 
     def test_there_is_no_invitation_to_sign_up(self, client):
         """allauth's default offers self-service signup. Accounts here are
@@ -111,3 +126,36 @@ class TestSignInPage:
         than presenting a form that cannot work."""
         response = client.get("/accounts/signup/")
         assert b"created by an administrator" in response.content
+
+
+class TestArrivingFromDatadesk:
+    """Datadesk's navigation links straight here, so an unauthenticated
+    arrival should be a redirect nobody has to act on rather than a form to
+    fill in — Google already holds the session.
+
+    Tested as a view for the same reason as the class above: the route
+    exists only when Google sign-in is configured.
+    """
+
+    def test_the_handshake_starts_without_a_page_in_between(self, settings):
+        settings.LOGIN_URL = "/accounts/google/login/"
+        response = TestAdminLoginGateway.call()
+        assert response.status_code == 302
+        assert response.headers["Location"].startswith("/accounts/google/login/")
+
+    def test_where_they_were_going_survives_it(self, settings):
+        settings.LOGIN_URL = "/accounts/google/login/"
+        response = TestAdminLoginGateway.call(next="/admin/directory/outlet/")
+        assert "next=/admin/directory/outlet/" in response.headers["Location"]
+
+    def test_without_google_it_is_still_the_sign_in_page(self, settings):
+        """Blanking the client secret has to bring the ordinary form back,
+        or a broken OAuth client locks everybody out."""
+        settings.LOGIN_URL = "/accounts/login/"
+        response = TestAdminLoginGateway.call()
+        assert response.headers["Location"].startswith("/accounts/login/")
+
+    def test_the_sign_in_page_remains_reachable(self, client):
+        """Auto-starting the handshake must not remove the way to sign in as
+        somebody else."""
+        assert client.get("/accounts/login/").status_code == 200

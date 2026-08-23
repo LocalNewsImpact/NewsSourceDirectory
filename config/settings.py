@@ -113,6 +113,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 LOGIN_REDIRECT_URL = "/admin/"
 # Anything requiring a login goes to allauth's page, not the admin form.
+# Overridden below to the provider handshake when Google is configured.
 LOGIN_URL = "/accounts/login/"
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*"]
@@ -167,6 +168,21 @@ SOCIALACCOUNT_PROVIDERS = build_socialaccount_providers(
 )
 
 GOOGLE_SIGN_IN_CONFIGURED = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
+
+# Arriving from Datadesk's navigation should not stop at a sign-in page.
+# Google already holds this person's session, so the handshake starts
+# immediately and finishes as a redirect nobody has to act on.
+#
+# SOCIALACCOUNT_LOGIN_ON_GET is what lets a GET begin it. allauth leaves
+# that off by default because a third party can then trigger a login; the
+# consequence here is being signed in as yourself, to an admin the domain
+# adapter gates anyway. The sign-in page stays at /accounts/login/ for
+# choosing a different account, and remains the only route when Google is
+# not configured — blanking the client secret still brings the ordinary
+# form back, so a broken OAuth client cannot lock anybody out.
+if GOOGLE_SIGN_IN_CONFIGURED:
+    LOGIN_URL = "/accounts/google/login/"
+    SOCIALACCOUNT_LOGIN_ON_GET = True
 
 # --- publishing -------------------------------------------------------------
 

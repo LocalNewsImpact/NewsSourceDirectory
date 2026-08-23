@@ -3,7 +3,7 @@
 {% block title %}Sign in — News Source Directory{% endblock %}
 {% block content %}
   <h1>News Source Directory</h1>
-  <p class="sub">Local News Impact Consortium</p>
+  <p>Local News Impact Consortium</p>
 
   {% get_providers as socialaccount_providers %}
   {% if socialaccount_providers %}
@@ -16,7 +16,7 @@
     {% endfor %}
   {% else %}
     {# No OAuth client configured, so the password form is the only way in. #}
-    <form class="plain" method="post" action="{% url 'account_login' %}">
+    <form method="post" action="{% url 'account_login' %}">
       {% csrf_token %}
       {{ form.as_p }}
       {% if redirect_field_value %}
@@ -24,10 +24,10 @@
       {% endif %}
       <button type="submit">Sign in</button>
     </form>
-    <p class="note">Google sign-in is not configured here, so this is the password form.</p>
+    <p class="auth-note">Google sign-in is not configured here, so this is the password form.</p>
   {% endif %}
 
-  <p class="note">
+  <p class="auth-note">
     Access is limited to <strong>{{ allowed_domain }}</strong> accounts.
     If you need it, ask an administrator to add you.
   </p>

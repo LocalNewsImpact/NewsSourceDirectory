@@ -2,12 +2,12 @@
 {% block title %}No access — News Source Directory{% endblock %}
 {% block content %}
   <h1>You're signed in, but not authorised</h1>
-  <p class="sub">{{ email }}</p>
+  <p>{{ email }}</p>
   <p>
     Your account exists and Google verified it, but it has not been granted
     access to the directory yet.
   </p>
-  <p class="note">
+  <p class="auth-note">
     An administrator can grant it under <strong>Users</strong> in the admin, or by
     running <code>manage.py ensure_admin {{ email }}</code>.
     <br><br>
