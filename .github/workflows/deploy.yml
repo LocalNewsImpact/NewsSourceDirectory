@@ -119,7 +119,7 @@ jobs:
             --command /bin/sh \
             --args "^|^-c|python manage.py migrate --noinput && python manage.py configure_site --domain $ADMIN_HOST && python manage.py check_data" \
             --set-secrets DJANGO_SECRET_KEY=django-secret-key:latest,DB_PASSWORD=db-password:latest \
-            --set-env-vars "CLOUD_SQL_CONNECTION_NAME=$SQL_INSTANCE,DB_NAME=directory,DB_USER=directory" \
+            --set-env-vars "^@^CLOUD_SQL_CONNECTION_NAME=$SQL_INSTANCE@DB_NAME=datadesk@DB_USER=directory@DB_SEARCH_PATH=directory,public@SHARED_IDENTITY=1" \
             --set-cloudsql-instances $SQL_INSTANCE \
             --service-account directory-run@lnic-source-directory.iam.gserviceaccount.com
           gcloud run jobs execute "${SERVICE}-release" \
@@ -136,7 +136,7 @@ jobs:
             --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" \
             --service-account directory-run@lnic-source-directory.iam.gserviceaccount.com \
             --set-secrets "DJANGO_SECRET_KEY=django-secret-key:latest,DB_PASSWORD=db-password:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,GITHUB_DISPATCH_TOKEN=github-dispatch-token:latest" \
-            --set-env-vars "^@^CLOUD_SQL_CONNECTION_NAME=$SQL_INSTANCE@DB_NAME=directory@DB_USER=directory@ADMIN_HOST=$ADMIN_HOST@DJANGO_ALLOWED_HOSTS=$ADMIN_HOST,.run.app@DJANGO_CSRF_TRUSTED_ORIGINS=https://$ADMIN_HOST" \
+            --set-env-vars "^@^CLOUD_SQL_CONNECTION_NAME=$SQL_INSTANCE@DB_NAME=datadesk@DB_USER=directory@ADMIN_HOST=$ADMIN_HOST@DJANGO_ALLOWED_HOSTS=$ADMIN_HOST,.run.app@DJANGO_CSRF_TRUSTED_ORIGINS=https://$ADMIN_HOST@DB_SEARCH_PATH=directory,public@SHARED_IDENTITY=1@SESSION_COOKIE_DOMAIN=.localnewsimpact.org" \
             --set-cloudsql-instances $SQL_INSTANCE \
             --ingress all --allow-unauthenticated --min-instances 0
 
