@@ -81,6 +81,26 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {"default": database_config(os.environ)}
 
+# One sign-in across the suite. When the directory runs against Datadesk's
+# database, Datadesk owns identity and this application must not migrate
+# those tables — see config/routers.py for what goes wrong if it does.
+SHARED_IDENTITY = os.environ.get("SHARED_IDENTITY", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+if SHARED_IDENTITY:
+    DATABASE_ROUTERS = ["config.routers.IdentityOwnedByDatadesk"]
+
+# The session is Datadesk's, carried between the two subdomains by a
+# cookie on the parent domain — no load balancer, no shared origin. The
+# names must match Datadesk's exactly or each console reads past the
+# other's cookie and signs the person in again.
+SESSION_COOKIE_DOMAIN = os.environ.get("SESSION_COOKIE_DOMAIN", "") or None
+CSRF_COOKIE_DOMAIN = SESSION_COOKIE_DOMAIN
+SESSION_COOKIE_NAME = "lnic_session"
+CSRF_COOKIE_NAME = "lnic_csrf"
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": f"django.contrib.auth.password_validation.{v}"}
     for v in (
