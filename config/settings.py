@@ -95,13 +95,16 @@ DATABASES = {"default": database_config(os.environ)}
 
 # --- one identity across the suite (Datadesk ROADMAP item 12) ---------------
 #
-# Datadesk owns the user, session and allauth tables; this service reads
+# Datadesk owns the user, session and allauth tables; this package reads
 # them out of `public` in the same database and keeps its own tables in
-# the `directory` schema. Off, this service owns its whole database as
-# before — which is what local development and CI run against.
-SHARED_IDENTITY = env_bool("SHARED_IDENTITY", False)
-if SHARED_IDENTITY:
-    DATABASE_ROUTERS = ["config.routers.IdentityOwnedByDatadesk"]
+# the `directory` schema.
+#
+# A SHARED_IDENTITY flag and a database router used to guard that, because
+# this repository deployed a second Django process that ran its own
+# migrations. It does not any more: sources.localnewsimpact.org runs
+# Datadesk's image, and Datadesk's deploy runs `migrate directory`, which
+# names the app and so cannot create a table for another one. The settings
+# below are what a local checkout still needs.
 
 # The cookie is what actually carries a session between
 # datadesk.localnewsimpact.org and this host: scoped to the parent

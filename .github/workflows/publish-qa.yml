@@ -17,15 +17,15 @@ on:
   repository_dispatch:
     types: [publish-feed]
 
-  # After a migration, because a schema or projection change alters what the
-  # feed contains even when no one has edited anything. This repository no
-  # longer deploys the service — release.yml migrates and stops there — so this
-  # is a schema signal, not a rollout signal.
-  workflow_run:
-    workflows: [Release]
-    types: [completed]
+  # There was a third trigger here: this repository's own Deploy, later
+  # Release, because a schema or projection change alters what the feed
+  # contains even when no one has edited anything. Neither workflow exists
+  # now — Datadesk deploys and migrates sources-admin — and a workflow_run
+  # naming a workflow in another repository is not something GitHub offers.
+  # A schema change that should republish immediately can send the
+  # repository_dispatch above; otherwise the schedule below picks it up.
 
-  # The safety net beneath both, for a signal that never arrived.
+  # The safety net beneath them, for a signal that never arrived.
   schedule:
     - cron: "0 11 * * *"      # 06:00 Central, before anyone starts editing
 
@@ -52,11 +52,6 @@ jobs:
   publish:
     name: Build and commit the feed
     runs-on: ubuntu-latest
-    # A failed migration leaves the schema mid-change, so publishing from it
-    # would describe a database that is not the one the service reads.
-    if: >-
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v7
 

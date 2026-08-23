@@ -115,7 +115,7 @@ image as the service, with a different entrypoint:
 
 | Job | Trigger |
 |---|---|
-| `migrate` | on deploy, before traffic shifts |
+| `migrate directory` | on Datadesk's deploy, before traffic shifts |
 | `import_source <gcs-uri>` | manual, or Cloud Scheduler |
 | `rebuild_outlets` | manual, after an import |
 | `publish` | on save, or scheduled |

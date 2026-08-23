@@ -1,21 +1,23 @@
 """Datadesk owns identity; this service borrows it.
 
 Both run against one database on one Cloud SQL instance. Datadesk keeps
-the user, session and allauth tables in `public`; this service keeps its
+the user, session and allauth tables in `public`; this package keeps its
 own in a `directory` schema and reads across.
 
-The failure these guard against is quiet rather than loud. With
-`search_path=directory,public` an unqualified `CREATE TABLE` lands in
-`directory`, so a migration here that touched `auth` would build a
-second `auth_user` shadowing the shared one — and this console would
-authenticate against a different set of people than Datadesk, with
-nothing erroring.
+A router used to sit here refusing migrations for the shared apps, because
+with `search_path=directory,public` an unqualified `CREATE TABLE` lands in
+`directory` — a migration that touched `auth` would have built a second
+`auth_user` shadowing the shared one, and this console would authenticate
+against a different set of people than Datadesk with nothing erroring.
+
+Nothing in this repository migrates any more. Datadesk's deploy runs
+`manage.py migrate directory`, which names the app and so cannot reach
+another one's tables. What remains here is what a local checkout still
+needs: the search path that finds the schema, and the cookie and site-row
+settings that have to agree with Datadesk's.
 """
 
-import pytest
-
 from config.db import database_config
-from config.routers import SHARED_IDENTITY_APPS, IdentityOwnedByDatadesk
 
 # --- the connection ---------------------------------------------------------
 
@@ -51,45 +53,6 @@ def test_a_database_url_can_carry_the_search_path_too():
     assert config["OPTIONS"]["options"] == "-c search_path=directory,public"
 
 
-# --- who may change what ----------------------------------------------------
-
-
-@pytest.mark.parametrize("app_label", sorted(SHARED_IDENTITY_APPS))
-def test_this_service_never_migrates_a_shared_app(app_label):
-    """Not "does not need to" — must not. Creating auth_user here would
-    shadow the shared one and split the two consoles' idea of who is
-    signed in."""
-    assert IdentityOwnedByDatadesk().allow_migrate("default", app_label) is False
-
-
-@pytest.mark.parametrize("app_label", ["directory", "checks", "feed"])
-def test_this_service_still_migrates_its_own(app_label):
-    assert IdentityOwnedByDatadesk().allow_migrate("default", app_label) is None
-
-
-def test_the_shared_set_is_every_app_whose_tables_are_datadesks():
-    """Named explicitly rather than inferred, so adding an app that
-    writes to `public` is a decision someone makes on purpose."""
-    assert {
-        "auth",
-        "contenttypes",
-        "sessions",
-        "admin",
-        "sites",
-        "account",
-        "socialaccount",
-    } == SHARED_IDENTITY_APPS
-
-
-def test_reads_and_writes_are_not_the_routers_business():
-    """Only schema changes are refused. Whether this service may read
-    auth_user or write a session is decided by the database grants, and
-    it is allowed both."""
-    router = IdentityOwnedByDatadesk()
-    assert not hasattr(router, "db_for_read")
-    assert not hasattr(router, "db_for_write")
-
-
 # --- the cookie -------------------------------------------------------------
 
 
@@ -109,13 +72,14 @@ def test_csrf_is_scoped_wherever_the_session_is():
     assert settings.CSRF_COOKIE_DOMAIN == settings.SESSION_COOKIE_DOMAIN
 
 
-def test_sharing_is_off_unless_asked_for():
-    """The default has to be a service that owns its own database, or a
-    fresh checkout tries to borrow tables that are not there."""
+def test_no_router_stands_between_this_package_and_the_database():
+    """The router was scaffolding for a second process migrating the same
+    database. There is no second process: Datadesk migrates, naming the
+    app. A router reintroduced here would silently change what a local
+    checkout can write."""
     from django.conf import settings
 
-    assert settings.SHARED_IDENTITY is False
-    assert not hasattr(settings, "DATABASE_ROUTERS") or settings.DATABASE_ROUTERS == []
+    assert getattr(settings, "DATABASE_ROUTERS", []) == []
 
 
 # --- the shared site table --------------------------------------------------

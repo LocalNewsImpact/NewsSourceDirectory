@@ -7,7 +7,8 @@ local          make check
   ↓ push (any branch)
 CI             8 required jobs
   ↓ merge to main (pull request, 1 approval)
-Deploy         build → migrate → candidate revision → health check → shift traffic
+  ↓ tag a release, bump the pin in Datadesk
+Deploy         in Datadesk: build → migrate → candidate → health check → shift
   ↓
 Publish        static feed to gh-pages
 ```
@@ -74,22 +75,35 @@ the feed.
 `PUBLIC_FIELDS`. This is what prevents a new model field reaching the public
 directory.
 
-## 3. Deploy
+## 3. Deploy — in Datadesk, not here
 
-Triggered by a merge to `main`. Skipped when every changed path is documentation
-— `paths-ignore` covers `**.md`, `docs/`, `mockup/`, issue templates and the
-pre-commit config, none of which are in the image.
+Nothing in this repository deploys or migrates. `sources-admin` runs Datadesk's
+image with `SERVICE_ROLE=sources`, and this package reaches it by being pinned
+in Datadesk's `requirements.txt`:
+
+```
+tag a release here  →  bump the pin in Datadesk  →  Datadesk's deploy
+```
+
+Datadesk's `deploy.yml` builds the image once and rolls out both consoles,
+proving its own before touching this one:
 
 | Step | Detail |
 |---|---|
-| 1. Authenticate | Workload Identity Federation; no stored credentials, provider bound to this repository |
-| 2. Dependency image | Tagged with a hash of `requirements.txt`; rebuilt only when that file changes |
-| 3. Application image | Tagged with the commit SHA; ~5MB on top of the base |
-| 4. Migrate | Cloud Run **job**, before traffic shifts, so two revisions cannot migrate concurrently |
+| 1. Authenticate | Workload Identity Federation, as `github-deploy@lnic-datadesk`, which holds `run.developer` in `lnic-source-directory` |
+| 2. Images | Dependency image keyed to a `requirements.txt` hash; application image tagged with the commit SHA |
+| 3. Datadesk | Migrate, deploy a no-traffic candidate, prove `/_health`, shift, smoke test |
+| 4. Migrate this schema | Cloud Run **job**: `migrate directory`, `configure_site`, `check_data` |
 | 5. Deploy | `--no-traffic --tag candidate` — the revision serves nobody yet |
 | 6. Check reachability | Fails if no `run.invoker` binding exists |
 | 7. Prove the candidate | `/_health` on the candidate's tagged URL must return 200 |
 | 8. Shift traffic | `update-traffic --to-latest`, then smoke test the public URL |
+
+Step 4 names the app. Both consoles share one ledger in
+`public.django_migrations`, but the job runs with `search_path=directory,public`,
+so a bare `migrate` would let another app's unapplied migration create its table
+in the `directory` schema. Naming the app is what makes that impossible — it
+replaced a database router that used to live here.
 
 Step 6 exists because `gcloud` reports a refused IAM binding as a warning and
 exits 0. The first production deploy therefore reported success while every
