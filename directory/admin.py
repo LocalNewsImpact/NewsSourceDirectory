@@ -57,6 +57,32 @@ _original_index = admin.site.index
 admin.site.index = _dashboard_index
 
 
+def _has_permission(request):
+    """Who may reach this admin at all.
+
+    Django's default is `is_active and is_staff`. One global boolean
+    cannot say that somebody is an editor here and a viewer in Datadesk,
+    which is what the suite needs now that both consoles share one set of
+    users -- so this asks the gate in `directory.views` instead, and that
+    gate is configurable so Datadesk can point it at a grant check.
+
+    Patched onto the default site for the same reason `index` is: every
+    ModelAdmin registers against it, and substituting a custom site would
+    mean re-registering all of them and rewriting every /admin/ URL that
+    already exists in links and bookmarks.
+
+    This is the real gate. `admin_login_gateway` only decides where to
+    send somebody who is not signed in; Django checks this on every admin
+    view, so leaving it on `is_staff` would let the two disagree.
+    """
+    from directory.views import may_reach_admin
+
+    return request.user.is_active and may_reach_admin(request.user)
+
+
+admin.site.has_permission = _has_permission
+
+
 class DistinctNameFilter(admin.SimpleListFilter):
     """How many different mastheads an outlet's coverage rows name.
 
