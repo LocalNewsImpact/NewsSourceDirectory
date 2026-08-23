@@ -77,7 +77,12 @@
     </div>
   </div>
 
-  {# Django's own model list, kept below the summary rather than replaced. #}
-  {{ block.super }}
+  {# Django's own model list, below the summary rather than replaced.
+
+     Not {{ block.super }}: this template *is* admin/index.html, so the
+     parent block belongs to admin/base.html, whose content block renders
+     an empty {{ content }} for this view. The app list has to be
+     included the way Django's own index.html includes it. #}
+  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
 </div>
 {% endblock %}
