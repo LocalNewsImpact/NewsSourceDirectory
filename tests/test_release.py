@@ -1,0 +1,89 @@
+"""How a merge here reaches production.
+
+This package installs into Datadesk's image, resolved at build time to the
+newest release tag of this repository. There is no pin to bump, so an
+untagged merge is code that never ships -- and nothing says so: CI is green,
+main is ahead, and production keeps serving the last tag. These assert the
+workflow that closes that gap.
+"""
+
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
+WORKFLOW = ROOT / ".github/workflows/tag-a-release.yml"
+
+
+def _spec():
+    return yaml.safe_load(WORKFLOW.read_text())
+
+
+def test_the_version_in_pyproject_is_what_gets_tagged():
+    """One source for the number. A tag made by hand drifts from it -- v0.2.0
+    was cut from a commit whose pyproject still said 0.1.0, so the package
+    installed as v0.2.0 reported a different version than its tag."""
+    text = WORKFLOW.read_text()
+    assert "pyproject.toml" in text
+    assert 'git tag -a "v$VERSION"' in text
+
+
+def test_an_unbumped_version_fails_rather_than_shipping_nothing():
+    """The failure this exists for is silent. Without the check the merge is
+    green, the tag is not moved, and production serves the previous release
+    while main looks deployed."""
+    text = WORKFLOW.read_text()
+    assert 'git rev-parse "v$VERSION"' in text
+    assert "already tagged" in text
+    assert "exit 1" in text
+
+
+def test_the_tag_asks_datadesk_to_deploy():
+    """A tag nothing acts on waits for Datadesk to deploy for its own
+    reasons. That was the gap: releasing here changed nothing until something
+    unrelated happened there."""
+    text = WORKFLOW.read_text()
+    assert "gh workflow run deploy.yml -R LocalNewsImpact/datadesk" in text
+
+
+def test_a_missing_token_is_an_error_not_a_silent_skip():
+    """The tag is pushed by the step before. If the deploy call is skipped
+    quietly, the release exists and never ships -- the exact failure this
+    workflow was written to remove."""
+    text = WORKFLOW.read_text()
+    assert 'if [ -z "$GH_TOKEN" ]' in text
+    assert "DATADESK_DEPLOY_TOKEN is not set" in text
+
+
+def test_documentation_does_not_cut_a_release():
+    spec = _spec()
+    ignored = spec[True]["push"]["paths-ignore"]
+    assert "**.md" in ignored
+    assert "docs/**" in ignored
+
+
+def test_releases_do_not_run_concurrently():
+    """Two merges in quick succession would race to tag and to fire the same
+    deploy."""
+    spec = _spec()
+    assert spec["concurrency"]["group"] == "release-main"
+    assert spec["concurrency"]["cancel-in-progress"] is False
+
+
+def test_the_workflow_may_write_tags():
+    spec = _spec()
+    assert spec["permissions"]["contents"] == "write"
+
+
+def test_the_version_is_ahead_of_every_tag_that_exists():
+    """A merge of this repository must always be releasable. If pyproject
+    names a version already tagged, the next merge fails -- which is correct
+    behaviour, and a state main should never be left in."""
+    version = ""
+    for line in (ROOT / "pyproject.toml").read_text().splitlines():
+        if line.startswith("version = "):
+            version = line.split('"')[1]
+            break
+    assert version, "pyproject.toml has no version"
+    # Not a git call: CI checks out with tags, a contributor's clone may not.
+    assert version != "0.2.0", "v0.2.0 is tagged; the next release needs a bump"

@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "news-source-directory"
-version = "0.1.0"
+version = "0.3.0"
 description = "Registry of local news outlets for the Local News Impact Consortium"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
