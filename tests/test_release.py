@@ -76,14 +76,36 @@ def test_the_workflow_may_write_tags():
 
 
 def test_the_version_is_ahead_of_every_tag_that_exists():
-    """A merge of this repository must always be releasable. If pyproject
-    names a version already tagged, the next merge fails -- which is correct
-    behaviour, and a state main should never be left in."""
+    """A merge of this repository must always be releasable.
+
+    If pyproject names a version already tagged, the next merge fails at the
+    workflow -- correct behaviour, and a state main should never be left in.
+    Checked against the tags that exist rather than a version written here,
+    which goes stale the moment one is cut.
+    """
+    import subprocess
+
     version = ""
     for line in (ROOT / "pyproject.toml").read_text().splitlines():
         if line.startswith("version = "):
             version = line.split('"')[1]
             break
     assert version, "pyproject.toml has no version"
-    # Not a git call: CI checks out with tags, a contributor's clone may not.
-    assert version != "0.2.0", "v0.2.0 is tagged; the next release needs a bump"
+
+    try:
+        tags = subprocess.run(
+            ["git", "tag", "-l", "v*"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout.split()
+    except (OSError, subprocess.SubprocessError):
+        return  # no git, or a checkout without tags; the workflow still checks
+
+    if not tags:
+        return
+    assert f"v{version}" not in tags, (
+        f"v{version} is already tagged, so the next merge cannot release. "
+        "Bump the version in pyproject.toml."
+    )
