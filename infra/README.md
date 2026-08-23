@@ -138,8 +138,12 @@ Completed with warnings:
   Setting IAM policy failed, try "gcloud ... --role=roles/run.invoker"
 ```
 
-`deploy.yml` now checks for the binding after deploying and fails when it is
-absent, so that cannot pass silently again.
+A deploy of this service used to check for the binding immediately afterwards
+and fail when it was absent. That check left with the deploy: sources-admin now
+runs Datadesk's image and `release.yml` only migrates. Whoever deploys the
+service carries the check — until Datadesk's deploy takes sources-admin over,
+that is a person, and the binding is worth confirming by hand after any change
+to the service's IAM policy.
 
 The project therefore carries an exception, set on this project alone while the
 rest of the organisation keeps its restriction:
@@ -183,7 +187,7 @@ Two consequences worth keeping:
   revision's environment as part of a longer string.
 - `gcloud run deploy --set-env-vars` **replaces** the whole environment. Two of
   those flags on one command silently discards the first, so there is exactly one
-  per command in `deploy.yml`.
+  per command in `release.yml`.
 
 ## Database isolation
 

@@ -17,10 +17,12 @@ on:
   repository_dispatch:
     types: [publish-feed]
 
-  # After a deploy, because a schema or projection change alters what the feed
-  # contains even when no one has edited anything.
+  # After a migration, because a schema or projection change alters what the
+  # feed contains even when no one has edited anything. This repository no
+  # longer deploys the service — release.yml migrates and stops there — so this
+  # is a schema signal, not a rollout signal.
   workflow_run:
-    workflows: [Deploy]
+    workflows: [Release]
     types: [completed]
 
   # The safety net beneath both, for a signal that never arrived.
@@ -50,8 +52,8 @@ jobs:
   publish:
     name: Build and commit the feed
     runs-on: ubuntu-latest
-    # A failed deploy leaves the service on the previous revision, so publishing
-    # from it would describe a version that is not serving.
+    # A failed migration leaves the schema mid-change, so publishing from it
+    # would describe a database that is not the one the service reads.
     if: >-
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
