@@ -91,14 +91,29 @@ class TestSignInPage:
         """It is the front door; an unstyled default reads as broken."""
         response = client.get("/accounts/login/")
         assert b"News Source Directory" in response.content
-        assert b"<style>" in response.content
+        assert b"auth-card" in response.content
 
-    def test_it_uses_the_site_typefaces(self, client):
-        """Matching localnewsimpact.org, so the admin reads as part of the same
-        site rather than a Django install that happens to share the domain."""
+    def test_it_wears_the_console_theme(self, client):
+        """The backend is reached from Datadesk's navigation, so it looks
+        like Datadesk. The stylesheets are linked from that service rather
+        than copied here: the tokens are one file in one repository, and a
+        second copy is how two consoles drift into designs that nearly
+        agree.
+
+        The public directory widget is the other half of this decision and
+        goes the other way — it matches localnewsimpact.org, and nothing
+        here should change that.
+        """
         content = client.get("/accounts/login/").content
-        assert b"Montserrat" in content
-        assert b"Lato" in content
+        for sheet in (b"tokens.css", b"auth.css", b"fonts.css"):
+            assert sheet in content, sheet
+        assert b"datadesk.localnewsimpact.org" in content
+
+    def test_it_offers_the_way_back_to_the_other_console(self, client):
+        """Arriving from Datadesk's Sources group, a reader should be able
+        to get back without the browser's history."""
+        content = client.get("/accounts/login/").content
+        assert b"https://datadesk.localnewsimpact.org/" in content
 
     def test_there_is_no_invitation_to_sign_up(self, client):
         """allauth's default offers self-service signup. Accounts here are
