@@ -1,0 +1,136 @@
+# Runs only on main, after CI has passed and a reviewer has approved — branch
+# protection guarantees both, so this workflow does not re-check them.
+#
+# This repository no longer deploys sources-admin. Under item 14 of Datadesk's
+# roadmap the directory ships as a Python package installed into Datadesk's
+# image, and sources-admin runs that image with SERVICE_ROLE=sources. A push
+# here reaches production by tagging a version and bumping the pin in
+# Datadesk's requirements.txt, not by building an image and shifting traffic.
+#
+# What remains is the migration. The directory's tables live in the `directory`
+# schema of the datadesk database, and github-deploy@lnic-source-directory is
+# the only identity with Cloud Run rights in that project — Datadesk's deploy
+# service account holds no role there. Until that changes, migrating from here
+# is the only path that exists, and `config/routers.py` with SHARED_IDENTITY
+# stays load-bearing for exactly as long: this is a second Django process
+# against the shared database, and without the router an unqualified
+# CREATE TABLE would put a shadow auth_user in the directory schema.
+#
+# The image is still built, because the release job needs one to run manage.py
+# from. It is no longer deployed to any service.
+
+name: Release
+
+# Documentation does not reach the running service. The image copies manage.py,
+# config/, directory/, checks/, feed/ and templates/ and nothing else, so a
+# Markdown-only merge previously spent a full build and a migration job to
+# change nothing. A push that touches both docs and code still runs — the
+# filter skips the run only when every changed path is listed here.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'mockup/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/dependabot.yml'
+      - '.pre-commit-config.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: release-main         # never two migrations at once
+  cancel-in-progress: false   # let a running migration finish
+
+permissions:
+  contents: read
+  id-token: write             # required to mint the WIF token
+
+env:
+  PROJECT_ID: lnic-source-directory
+  REGION: us-central1
+  SERVICE: sources-admin
+  REPO: app
+  # Cloud Run reaches Cloud SQL over a unix socket rather than a host and port,
+  # so the job is given the connection name and assembles the DSN itself.
+  # Passing a DATABASE_URL here would point it at its own localhost — see
+  # config/db.py.
+  SQL_INSTANCE: mizzou-news-crawler:us-central1:mizzou-db-prod
+  ADMIN_HOST: sources.localnewsimpact.org
+
+jobs:
+  release:
+    name: Migrate and configure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/666766099662/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@lnic-source-directory.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Confirm the deploy identity
+        run: |
+          gcloud auth list --filter=status:ACTIVE --format='value(account)'
+          echo "project: ${PROJECT_ID}"
+
+      # The dependency image is rebuilt only when requirements.txt changes.
+      # Tagging it with a hash of that file makes "has anything changed?" a
+      # registry lookup rather than a guess, and an application-only run then
+      # pushes about 4MB instead of reinstalling 319MB of libraries.
+      - name: Dependency image
+        id: base
+        run: |
+          HASH="$(sha256sum requirements.txt | cut -c1-12)"
+          BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}-base:${HASH}"
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+          if gcloud artifacts docker images describe "$BASE" >/dev/null 2>&1; then
+            echo "reusing $HASH — dependencies unchanged"
+          else
+            echo "building $HASH — requirements.txt changed"
+            docker build -f Dockerfile.base -t "$BASE" .
+            docker push "$BASE"
+          fi
+
+      # Built to run manage.py from, not to serve. sources-admin runs
+      # Datadesk's image; nothing deploys this one to a service.
+      - name: Build and push the image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}:${GITHUB_SHA::7}"
+          docker build --build-arg "BASE_IMAGE=$BASE" -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      # One job, not three. Each `jobs deploy` costs 60-90s even when nothing
+      # changed, and running migrate, configure_site and check_data separately
+      # spent minutes of every run on the same overhead repeatedly.
+      - name: Migrate and configure the site
+        run: |
+          gcloud run jobs deploy "${SERVICE}-release" \
+            --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" \
+            --command /bin/sh \
+            --args "^|^-c|python manage.py migrate --noinput && python manage.py configure_site --domain $ADMIN_HOST && python manage.py check_data" \
+            --set-secrets DJANGO_SECRET_KEY=django-secret-key:latest,DB_PASSWORD=db-password:latest \
+            --set-env-vars "^@^CLOUD_SQL_CONNECTION_NAME=$SQL_INSTANCE@DB_NAME=datadesk@DB_USER=directory@DB_SEARCH_PATH=directory,public@SHARED_IDENTITY=1@SITE_ID=2" \
+            --set-cloudsql-instances $SQL_INSTANCE \
+            --service-account directory-run@lnic-source-directory.iam.gserviceaccount.com
+          gcloud run jobs execute "${SERVICE}-release" \
+            --region "$REGION" --project "$PROJECT_ID" --wait
+
+      # The migration has landed but no revision was rolled out, so what is
+      # serving is whatever Datadesk's image last deployed. Prove it still
+      # answers rather than assuming a schema change was harmless.
+      - name: The service still answers
+        run: |
+          URL="$(gcloud run services describe "$SERVICE" --region "$REGION" \
+                  --project "$PROJECT_ID" --format='value(status.url)')"
+          code="$(curl -s -o /dev/null -w '%{http_code}' "$URL/_health")"
+          echo "$URL/_health -> $code"
+          [ "$code" = "200" ] || { echo "::error::sources-admin is unhealthy after the migration"; exit 1; }

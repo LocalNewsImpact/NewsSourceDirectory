@@ -7,15 +7,17 @@ checked against the live projects on 2026-08-19; the procedures marked
 | | |
 |---|---|
 | Admin | `sources-admin`, Cloud Run, `us-central1`, project `lnic-source-directory` |
-| Database | `directory` on `mizzou-news-crawler:us-central1:mizzou-db-prod` |
+| Image | Datadesk's, run with `SERVICE_ROLE=sources` — this repository ships as a package inside it |
+| Database | schema `directory` in `datadesk`, on `mizzou-news-crawler:us-central1:mizzou-db-prod` |
 | Feed | the `gh-pages` branch of this repository |
 
 ---
 
 ## The admin is broken after a deploy
 
-Cloud Run keeps every revision. Rolling back is a traffic change, not a rebuild,
-and takes seconds.
+The deploy came from Datadesk — sources-admin runs its image — so the fix
+forward belongs there. The roll back belongs here: Cloud Run keeps every
+revision, and reverting is a traffic change, not a rebuild, taking seconds.
 
 ```bash
 gcloud run revisions list --service=sources-admin \
@@ -47,16 +49,30 @@ gcloud run services describe sources-admin --region=us-central1 \
   --project=lnic-source-directory --format='value(status.traffic)'
 ```
 
-## The deploy did not run
+## The migration did not run
 
-A merge to `main` normally triggers `deploy.yml`. An administrative merge does
+A merge to `main` normally triggers `release.yml`. An administrative merge does
 not always emit the push event the workflow listens for, and the result is a
-green merge with no deployment and no failure anywhere.
+green merge with no migration and no failure anywhere.
 
-Confirm rather than assume: the Actions tab should show a Deploy run started
+Confirm rather than assume: the Actions tab should show a Release run started
 within a minute of the merge. If it did not, run the workflow by hand from the
-Actions tab. The image tag is the commit SHA, so comparing the serving revision's
-image against `git rev-parse --short HEAD` tells you what is actually deployed.
+Actions tab.
+
+## A code change here did not reach the site
+
+Merging to `main` migrates the schema. It does not ship code. sources-admin runs
+Datadesk's image with `SERVICE_ROLE=sources`, and the `directory` package inside
+that image is pinned to a version tag in Datadesk's `requirements.txt`:
+
+```
+news-source-directory @ git+https://github.com/LocalNewsImpact/NewsSourceDirectory@v0.1.0
+```
+
+So a change here reaches the site in three steps: tag a release in this
+repository, bump that pin in Datadesk, and let Datadesk's deploy build and roll
+out the image. Comparing the pinned tag against `git describe --tags` here tells
+you how far the serving code is behind this branch.
 
 ---
 

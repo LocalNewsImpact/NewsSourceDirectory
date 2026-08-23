@@ -108,8 +108,9 @@ working dropdowns rather than empty ones.
 
 130 tests, 25 of them against a real Postgres.
 
-The `Dockerfile` also switches on the build, migrate and deploy steps in
-`deploy.yml`, which have been waiting for it.
+The `Dockerfile` also switches on the build and migrate steps in `release.yml`,
+which have been waiting for it. It once switched on a deploy as well;
+sources-admin now runs Datadesk's image, and this repository only migrates.
 
 ---
 
