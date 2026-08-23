@@ -14,7 +14,7 @@ COPY config/ ./config/
 COPY directory/ ./directory/
 COPY checks/ ./checks/
 COPY feed/ ./feed/
-COPY templates/ ./templates/
+# Templates now live in directory/templates/ and arrive with the app above.
 
 # Static files are baked in and served by WhiteNoise; without this the admin
 # renders unstyled on Cloud Run.

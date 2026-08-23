@@ -1,8 +1,40 @@
+# Built as a distribution so another Django project can install this and
+# add `directory` to its INSTALLED_APPS. That is the shape the suite is
+# moving to: one process, several applications, still several
+# repositories.
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "news-source-directory"
 version = "0.1.0"
 description = "Registry of local news outlets for the Local News Impact Consortium"
 requires-python = ">=3.11"
+
+# What the *app* needs, which is not what the deployment needs. gunicorn,
+# whitenoise, psycopg and dj-database-url serve this repository's own
+# service and belong in requirements.txt; a project installing the app
+# brings its own. Nothing here pulls in pandas or openpyxl either — those
+# are tooling, and none of directory, checks or feed imports them.
+dependencies = [
+    "Django>=5.2,<6",
+    "django-allauth[socialaccount]>=65.19.1",
+    "django-import-export>=4.4.1",
+    "django-simple-history>=3.13.0",
+]
+
+# `config` is the project — settings, urls, wsgi — and is deliberately
+# absent: a consuming project supplies its own. `directory` imports from
+# both `checks` and `feed`, and neither imports back, so all three ship.
+[tool.setuptools.packages.find]
+include = ["directory*", "checks*", "feed*"]
+
+# Templates live inside the app so they travel with it. See
+# tests/test_template_ownership.py for why the app's position in
+# INSTALLED_APPS matters once they do.
+[tool.setuptools.package-data]
+directory = ["templates/**/*.html"]
 
 [tool.ruff]
 line-length = 100
