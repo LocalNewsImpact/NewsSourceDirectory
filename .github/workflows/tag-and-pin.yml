@@ -1,0 +1,140 @@
+# Cut a tag when the version changes, and keep Datadesk's pin current.
+#
+# This package installs into Datadesk's image, pinned to a tag:
+#
+#     news-source-directory @ git+https://github.com/.../NewsSourceDirectory@v0.2.0
+#
+# A tag rather than a branch, so two deploys of the same Datadesk commit
+# install the same code — datadesk's test_the_directory_package_is_pinned_to_a_tag
+# enforces that. The cost is that merging here changes nothing over there
+# until somebody tags and bumps, and on 2026-08-23 four merged pull
+# requests sat unreleased for exactly that reason.
+#
+# So the two middle steps are automated and the pin stays a tag.
+#
+# **The version in pyproject.toml is the source of truth.** Releasing is a
+# deliberate act: the pull request that warrants a release bumps the
+# version, and this workflow notices. A merge that does not bump it
+# releases nothing, which is the right default for a repository where most
+# merges are one change among several heading for the same release.
+
+name: Tag and pin
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'mockup/**'
+      - '.github/ISSUE_TEMPLATE/**'
+  workflow_dispatch:
+
+concurrency:
+  group: tag-and-pin
+  cancel-in-progress: false
+
+permissions:
+  contents: write          # to create the tag
+
+env:
+  CONSUMER: LocalNewsImpact/datadesk
+  PIN_BRANCH: chore/directory-pin
+
+jobs:
+  release:
+    name: Tag, then open the pin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # tags, to know what is already released
+
+      - name: Read the version
+        id: version
+        run: |
+          # grep rather than tomllib: no Python setup step, and nothing
+          # that depends on the runner's version.
+          VERSION="$(grep -m1 -E '^version = ' pyproject.toml | cut -d'"' -f2)"
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version in pyproject.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "pyproject says $VERSION"
+
+      - name: Is it already released?
+        id: check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "${{ steps.version.outputs.tag }} exists; nothing to release."
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tag it
+        if: steps.check.outputs.released == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" \
+            -m "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      # Separate token: GITHUB_TOKEN is scoped to this repository and
+      # cannot open a pull request in Datadesk. Without it the tag is
+      # still cut and this step says what is left to do by hand, rather
+      # than failing the run for something already done.
+      - name: Bump the pin in Datadesk
+        if: steps.check.outputs.released == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.CONSUMER_PIN_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::CONSUMER_PIN_TOKEN is not set, so ${TAG} is tagged" \
+                 "but ${CONSUMER}'s pin was not bumped. Do it by hand, or add a" \
+                 "token with contents:write and pull-requests:write on that repo."
+            exit 0
+          fi
+
+          git clone --quiet --depth 1 \
+            "https://x-access-token:${GH_TOKEN}@github.com/${CONSUMER}.git" consumer
+          cd consumer
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # One standing branch, force-pushed, the way the crawler keeps its
+          # image tags: exactly one open pull request that always says the
+          # current version, rather than one per release piling up.
+          git checkout -q -B "$PIN_BRANCH"
+          sed -i "s|NewsSourceDirectory@v[0-9.]*|NewsSourceDirectory@${TAG}|" \
+            requirements.txt
+
+          if git diff --quiet requirements.txt; then
+            echo "${CONSUMER} already pins ${TAG}."
+            exit 0
+          fi
+
+          git commit -q -am "Install the Source Directory at ${TAG}"
+          git push --force --quiet origin "$PIN_BRANCH"
+
+          BODY="Pins the Source Directory at ${TAG}.
+
+          Opened by NewsSourceDirectory's tag-and-pin workflow when its
+          pyproject version changed. requirements.txt changing rebuilds the
+          dependency image, so this ships on the next deploy.
+
+          This branch is rewritten by every release; merging it records the
+          version as of that moment, and leaving it open means the next
+          release replaces its contents rather than opening a second one."
+
+          if gh pr view "$PIN_BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$PIN_BRANCH" \
+              --title "Install the Source Directory at ${TAG}" --body "$BODY"
+          else
+            gh pr create --base main --head "$PIN_BRANCH" \
+              --title "Install the Source Directory at ${TAG}" --body "$BODY"
+          fi
