@@ -81,23 +81,29 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {"default": database_config(os.environ)}
 
-# One sign-in across the suite. When the directory runs against Datadesk's
-# database, Datadesk owns identity and this application must not migrate
-# those tables — see config/routers.py for what goes wrong if it does.
-SHARED_IDENTITY = os.environ.get("SHARED_IDENTITY", "").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-}
+# --- one identity across the suite (Datadesk ROADMAP item 12) ---------------
+#
+# Datadesk owns the user, session and allauth tables; this service reads
+# them out of `public` in the same database and keeps its own tables in
+# the `directory` schema. Off, this service owns its whole database as
+# before — which is what local development and CI run against.
+SHARED_IDENTITY = env_bool("SHARED_IDENTITY", False)
 if SHARED_IDENTITY:
     DATABASE_ROUTERS = ["config.routers.IdentityOwnedByDatadesk"]
 
-# The session is Datadesk's, carried between the two subdomains by a
-# cookie on the parent domain — no load balancer, no shared origin. The
-# names must match Datadesk's exactly or each console reads past the
-# other's cookie and signs the person in again.
+# The cookie is what actually carries a session between
+# datadesk.localnewsimpact.org and this host: scoped to the parent
+# domain, it is sent to both. No load balancer and no shared origin are
+# involved. Unset locally, where there is no parent domain to share.
 SESSION_COOKIE_DOMAIN = os.environ.get("SESSION_COOKIE_DOMAIN", "") or None
 CSRF_COOKIE_DOMAIN = SESSION_COOKIE_DOMAIN
+
+# The names match Datadesk's, and must: one cookie read by two
+# applications cannot be called two things. Datadesk renamed away from
+# `sessionid` at the same time, because widening a cookie's domain
+# leaves the old host-only one in the browser beside the new one and
+# both get sent. Everyone signs in once more; after that the session is
+# the suite's.
 SESSION_COOKIE_NAME = "lnic_session"
 CSRF_COOKIE_NAME = "lnic_csrf"
 

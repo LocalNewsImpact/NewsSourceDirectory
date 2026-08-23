@@ -1,44 +1,47 @@
-"""Sharing Datadesk's database, and the boundaries that keeps.
+"""Datadesk owns identity; this service borrows it.
 
-The directory's own tables live in a `directory` schema; the suite's
-identity — users, sessions, permissions, allauth — stays in `public` and
-belongs to Datadesk. What these pin down is the line between the two,
-because crossing it fails silently: a `CREATE TABLE auth_user` under
-`search_path=directory,public` builds a second, shadowing user table and
-the two consoles start authenticating different people.
+Both run against one database on one Cloud SQL instance. Datadesk keeps
+the user, session and allauth tables in `public`; this service keeps its
+own in a `directory` schema and reads across.
 
-All of it is off unless the deployment turns it on, so running against
-its own database is unchanged.
+The failure these guard against is quiet rather than loud. With
+`search_path=directory,public` an unqualified `CREATE TABLE` lands in
+`directory`, so a migration here that touched `auth` would build a
+second `auth_user` shadowing the shared one — and this console would
+authenticate against a different set of people than Datadesk, with
+nothing erroring.
 """
+
+import pytest
 
 from config.db import database_config
 from config.routers import SHARED_IDENTITY_APPS, IdentityOwnedByDatadesk
 
-CLOUD_SQL = {
-    "CLOUD_SQL_CONNECTION_NAME": "p:us-central1:i",
-    "DB_NAME": "datadesk",
-    "DB_USER": "directory",
-    "DB_PASSWORD": "x",
-}
+# --- the connection ---------------------------------------------------------
 
 
-# --- where the tables are looked for ----------------------------------------
-
-
-def test_the_search_path_names_the_directory_first_then_the_shared_tables():
-    config = database_config({**CLOUD_SQL, "DB_SEARCH_PATH": "directory,public"})
+def test_the_schema_search_path_names_both():
+    """Its own tables first, the shared ones behind them: unqualified
+    names resolve to the directory's own and fall through to identity."""
+    config = database_config(
+        {
+            "CLOUD_SQL_CONNECTION_NAME": "p:r:i",
+            "DB_NAME": "datadesk",
+            "DB_SEARCH_PATH": "directory,public",
+        }
+    )
     assert config["OPTIONS"]["options"] == "-c search_path=directory,public"
     assert config["NAME"] == "datadesk"
 
 
-def test_a_connection_with_no_search_path_is_unchanged():
-    """Its own database, everything in public — how it has always run
-    locally and in CI."""
-    config = database_config(CLOUD_SQL)
+def test_without_a_search_path_the_connection_is_unchanged():
+    """Local development and CI run against this service's own database,
+    where everything is in `public` and nothing is shared."""
+    config = database_config({"CLOUD_SQL_CONNECTION_NAME": "p:r:i", "DB_NAME": "directory"})
     assert config["OPTIONS"] == {}
 
 
-def test_a_database_url_takes_the_search_path_too():
+def test_a_database_url_can_carry_the_search_path_too():
     config = database_config(
         {
             "DATABASE_URL": "postgres://u:p@h:5432/datadesk",
@@ -48,36 +51,50 @@ def test_a_database_url_takes_the_search_path_too():
     assert config["OPTIONS"]["options"] == "-c search_path=directory,public"
 
 
-# --- what this application may create ---------------------------------------
+# --- who may change what ----------------------------------------------------
 
 
-def test_the_directory_never_migrates_the_shared_identity_tables():
-    """Datadesk owns them. Building them here would shadow the real ones
-    under the search path rather than fail, which is why this is a rule
-    and not a convention."""
+@pytest.mark.parametrize("app_label", sorted(SHARED_IDENTITY_APPS))
+def test_this_service_never_migrates_a_shared_app(app_label):
+    """Not "does not need to" — must not. Creating auth_user here would
+    shadow the shared one and split the two consoles' idea of who is
+    signed in."""
+    assert IdentityOwnedByDatadesk().allow_migrate("default", app_label) is False
+
+
+@pytest.mark.parametrize("app_label", ["directory", "checks", "feed"])
+def test_this_service_still_migrates_its_own(app_label):
+    assert IdentityOwnedByDatadesk().allow_migrate("default", app_label) is None
+
+
+def test_the_shared_set_is_every_app_whose_tables_are_datadesks():
+    """Named explicitly rather than inferred, so adding an app that
+    writes to `public` is a decision someone makes on purpose."""
+    assert {
+        "auth",
+        "contenttypes",
+        "sessions",
+        "admin",
+        "sites",
+        "account",
+        "socialaccount",
+    } == SHARED_IDENTITY_APPS
+
+
+def test_reads_and_writes_are_not_the_routers_business():
+    """Only schema changes are refused. Whether this service may read
+    auth_user or write a session is decided by the database grants, and
+    it is allowed both."""
     router = IdentityOwnedByDatadesk()
-    for app_label in SHARED_IDENTITY_APPS:
-        assert router.allow_migrate("default", app_label) is False
+    assert not hasattr(router, "db_for_read")
+    assert not hasattr(router, "db_for_write")
 
 
-def test_the_directory_still_migrates_its_own():
-    router = IdentityOwnedByDatadesk()
-    assert router.allow_migrate("default", "directory") is None
-
-
-def test_auth_is_among_the_apps_it_refuses():
-    """Named explicitly: allauth's tables reference auth_user, so missing
-    any one of these leaves a table pointing at the wrong user table."""
-    assert {"auth", "sessions", "account", "socialaccount"} <= SHARED_IDENTITY_APPS
-
-
-# --- the cookie that carries the session ------------------------------------
+# --- the cookie -------------------------------------------------------------
 
 
 def test_the_cookie_names_match_datadesks():
-    """A mismatch is not an error, it is two sessions: each console sets
-    its own cookie, reads past the other's, and signs the person in
-    again — which is the whole thing this was meant to stop."""
+    """One cookie read by two applications cannot be called two things."""
     from django.conf import settings
 
     assert settings.SESSION_COOKIE_NAME == "lnic_session"
@@ -85,16 +102,17 @@ def test_the_cookie_names_match_datadesks():
 
 
 def test_csrf_is_scoped_wherever_the_session_is():
+    """A session shared across subdomains and a CSRF cookie that is not
+    fails every POST made from the other console."""
     from django.conf import settings
 
     assert settings.CSRF_COOKIE_DOMAIN == settings.SESSION_COOKIE_DOMAIN
 
 
-def test_sharing_is_off_unless_the_deployment_says_otherwise():
-    import os
-
+def test_sharing_is_off_unless_asked_for():
+    """The default has to be a service that owns its own database, or a
+    fresh checkout tries to borrow tables that are not there."""
     from django.conf import settings
 
-    if not os.environ.get("SHARED_IDENTITY"):
-        assert settings.SHARED_IDENTITY is False
-        assert not hasattr(settings, "DATABASE_ROUTERS") or settings.DATABASE_ROUTERS == []
+    assert settings.SHARED_IDENTITY is False
+    assert not hasattr(settings, "DATABASE_ROUTERS") or settings.DATABASE_ROUTERS == []
