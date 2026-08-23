@@ -10,22 +10,22 @@
   .dash { margin: 0 0 26px; }
   .dash h2 {
     font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
-    color: #4a5b64; margin: 0 0 10px; font-weight: 700;
+    color: var(--text-2); margin: 0 0 10px; font-weight: 700;
   }
   .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
   .tile {
-    display: block; text-decoration: none; background: #fff;
-    border: 1px solid #dfe5e8; border-left: 3px solid #66cef6; border-radius: 4px;
-    padding: 14px 16px; color: #1c2a31;
+    display: block; text-decoration: none; background: var(--surface);
+    border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--r-md);
+    padding: 14px 16px; color: var(--text);
   }
-  .tile:hover { border-color: #0073aa; border-left-color: #0073aa; }
-  .tile.warn { border-left-color: #d9a441; }
-  .tile.bad  { border-left-color: #c4443c; }
+  .tile:hover { border-color: var(--border-strong); border-left-color: var(--accent-hover); }
+  .tile.warn { border-left-color: var(--tone-warn); }
+  .tile.bad  { border-left-color: var(--tone-bad); }
   .tile .n { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .tile .l { font-size: 13.5px; margin-top: 2px; }
-  .tile .note { font-size: 11.5px; color: #6b7a82; margin-top: 3px; }
-  .dash .stale { font-size: 12px; color: #6b7a82; margin: 6px 0 0; }
-  .tile.zero .n { color: #6b7a82; font-weight: 400; }
+  .tile .note { font-size: 11.5px; color: var(--text-2); margin-top: 3px; }
+  .dash .stale { font-size: 12px; color: var(--text-2); margin: 6px 0 0; }
+  .tile.zero .n { color: var(--text-2); font-weight: 400; }
 </style>
 {% endblock %}
 

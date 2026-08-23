@@ -1,0 +1,33 @@
+{% extends "admin/base.html" %}
+
+{# The signed-in backend wears the LNIC console theme. It is linked from
+   Datadesk rather than copied here: the tokens are one file in one
+   repository, so a colour changed there reaches both consoles without a
+   release in this one. WhiteNoise serves them with
+   Access-Control-Allow-Origin: *, which is what makes the cross-origin
+   link work.
+
+   This affects the admin only. The embeddable directory widget matches
+   localnewsimpact.org and is styled separately — it must keep doing so. #}
+
+{% block title %}{{ title }} | Source Directory{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="https://datadesk.localnewsimpact.org/static/css/fonts.css">
+<link rel="stylesheet" href="https://datadesk.localnewsimpact.org/static/css/tokens.css">
+<link rel="stylesheet" href="https://datadesk.localnewsimpact.org/static/css/django-admin.css">
+{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">Source Directory</a></h1>
+{% endblock %}
+
+{% block header %}
+{# A strip above the admin's own header, so a reader can tell which LNIC
+   console they are in and get back to the other one. #}
+<div class="lnic-bar">
+  <span class="lnic-here">LNIC &middot; Source Directory</span>
+  <a class="lnic-back" href="https://datadesk.localnewsimpact.org/">Datadesk &#8599;</a>
+</div>
+{{ block.super }}
+{% endblock %}
