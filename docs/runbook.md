@@ -49,19 +49,9 @@ gcloud run services describe sources-admin --region=us-central1 \
   --project=lnic-source-directory --format='value(status.traffic)'
 ```
 
-## The migration did not run
+## A change here did not reach the site
 
-A merge to `main` normally triggers `release.yml`. An administrative merge does
-not always emit the push event the workflow listens for, and the result is a
-green merge with no migration and no failure anywhere.
-
-Confirm rather than assume: the Actions tab should show a Release run started
-within a minute of the merge. If it did not, run the workflow by hand from the
-Actions tab.
-
-## A code change here did not reach the site
-
-Merging to `main` migrates the schema. It does not ship code. sources-admin runs
+Merging to `main` here ships nothing and migrates nothing. sources-admin runs
 Datadesk's image with `SERVICE_ROLE=sources`, and the `directory` package inside
 that image is pinned to a version tag in Datadesk's `requirements.txt`:
 
