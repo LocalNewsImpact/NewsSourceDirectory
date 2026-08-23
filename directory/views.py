@@ -47,7 +47,10 @@ def admin_login_gateway(request):
             status=403,
         )
 
-    target = "/accounts/login/"
+    # settings.LOGIN_URL is the provider handshake when Google is
+    # configured and the sign-in page when it is not, so both cases are
+    # this one line.
+    target = settings.LOGIN_URL
     nxt = request.GET.get("next")
     return redirect(f"{target}?next={nxt}" if nxt else target)
 

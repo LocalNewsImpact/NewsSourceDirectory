@@ -126,3 +126,36 @@ class TestSignInPage:
         than presenting a form that cannot work."""
         response = client.get("/accounts/signup/")
         assert b"created by an administrator" in response.content
+
+
+class TestArrivingFromDatadesk:
+    """Datadesk's navigation links straight here, so an unauthenticated
+    arrival should be a redirect nobody has to act on rather than a form to
+    fill in — Google already holds the session.
+
+    Tested as a view for the same reason as the class above: the route
+    exists only when Google sign-in is configured.
+    """
+
+    def test_the_handshake_starts_without_a_page_in_between(self, settings):
+        settings.LOGIN_URL = "/accounts/google/login/"
+        response = TestAdminLoginGateway.call()
+        assert response.status_code == 302
+        assert response.headers["Location"].startswith("/accounts/google/login/")
+
+    def test_where_they_were_going_survives_it(self, settings):
+        settings.LOGIN_URL = "/accounts/google/login/"
+        response = TestAdminLoginGateway.call(next="/admin/directory/outlet/")
+        assert "next=/admin/directory/outlet/" in response.headers["Location"]
+
+    def test_without_google_it_is_still_the_sign_in_page(self, settings):
+        """Blanking the client secret has to bring the ordinary form back,
+        or a broken OAuth client locks everybody out."""
+        settings.LOGIN_URL = "/accounts/login/"
+        response = TestAdminLoginGateway.call()
+        assert response.headers["Location"].startswith("/accounts/login/")
+
+    def test_the_sign_in_page_remains_reachable(self, client):
+        """Auto-starting the handshake must not remove the way to sign in as
+        somebody else."""
+        assert client.get("/accounts/login/").status_code == 200
