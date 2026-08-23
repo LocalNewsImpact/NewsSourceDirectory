@@ -17,8 +17,6 @@ needs: the search path that finds the schema, and the cookie and site-row
 settings that have to agree with Datadesk's.
 """
 
-from django.contrib.auth.models import User
-
 from config.db import database_config
 
 # --- the connection ---------------------------------------------------------
@@ -125,35 +123,20 @@ def test_configure_site_writes_whichever_row_is_ours():
 
 
 # --- who reaches this console's admin ---------------------------------------
+#
+# No database. The gate is a pure function of a user object, and these run
+# in the unit job, which has no Postgres -- creating rows here passed
+# locally against a stray container and failed in CI on a refused
+# connection.
 
 
-def test_the_admin_gate_falls_back_to_is_staff(db, settings):
-    """Standalone, there is no grant model to ask, so `is_staff` is the
-    right answer rather than a failure."""
-    from directory.views import may_reach_admin
+class _User:
+    """Enough of a user for a gate to decide about."""
 
-    settings.DIRECTORY_ADMIN_GATE = ""
-    staff = User.objects.create_user("s", email="s@localnewsimpact.org", is_staff=True)
-    plain = User.objects.create_user("p", email="p@localnewsimpact.org")
-
-    assert may_reach_admin(staff)
-    assert not may_reach_admin(plain)
-
-
-def test_a_configured_gate_replaces_is_staff(db, settings):
-    """Datadesk points this at its grant check, so somebody with no
-    `is_staff` reaches the admin and somebody with it does not. Deriving
-    `is_staff` from a grant would have left two things to keep in step;
-    replacing the question leaves one."""
-    settings.DIRECTORY_ADMIN_GATE = "tests.test_shared_identity.only_dana"
-
-    from directory.views import may_reach_admin
-
-    dana = User.objects.create_user("dana", email="dana@localnewsimpact.org")
-    staff = User.objects.create_user("t", email="t@localnewsimpact.org", is_staff=True)
-
-    assert may_reach_admin(dana)
-    assert not may_reach_admin(staff)
+    def __init__(self, username="x", is_staff=False, is_active=True):
+        self.username = username
+        self.is_staff = is_staff
+        self.is_active = is_active
 
 
 def only_dana(user):
@@ -161,7 +144,29 @@ def only_dana(user):
     return user.username == "dana"
 
 
-def test_the_admin_site_asks_the_same_gate(db, settings, rf):
+def test_the_admin_gate_falls_back_to_is_staff(settings):
+    """Standalone, there is no grant model to ask, so `is_staff` is the
+    right answer rather than a failure."""
+    from directory.views import may_reach_admin
+
+    settings.DIRECTORY_ADMIN_GATE = ""
+    assert may_reach_admin(_User(is_staff=True))
+    assert not may_reach_admin(_User())
+
+
+def test_a_configured_gate_replaces_is_staff(settings):
+    """Datadesk points this at its grant check, so somebody without
+    `is_staff` reaches the admin and somebody with it does not. Deriving
+    `is_staff` from a grant would leave two things to keep in step;
+    replacing the question leaves one."""
+    from directory.views import may_reach_admin
+
+    settings.DIRECTORY_ADMIN_GATE = "tests.test_shared_identity.only_dana"
+    assert may_reach_admin(_User("dana"))
+    assert not may_reach_admin(_User("t", is_staff=True))
+
+
+def test_the_admin_site_asks_the_same_gate(settings, rf):
     """The gateway only decides where to send somebody not signed in.
     Django checks `has_permission` on every admin view, so leaving that
     on `is_staff` would let the two disagree."""
@@ -170,10 +175,19 @@ def test_the_admin_site_asks_the_same_gate(db, settings, rf):
     settings.DIRECTORY_ADMIN_GATE = "tests.test_shared_identity.only_dana"
 
     request = rf.get("/admin/")
-    request.user = User.objects.create_user("dana", email="dana@localnewsimpact.org")
+    request.user = _User("dana")
     assert admin.site.has_permission(request)
 
-    request.user = User.objects.create_user(
-        "t", email="t@localnewsimpact.org", is_staff=True
-    )
+    request.user = _User("t", is_staff=True)
+    assert not admin.site.has_permission(request)
+
+
+def test_an_inactive_account_is_refused_whatever_the_gate_says(settings, rf):
+    """Django's own check is `is_active and is_staff`; replacing the
+    second half must not drop the first."""
+    from django.contrib import admin
+
+    settings.DIRECTORY_ADMIN_GATE = "tests.test_shared_identity.only_dana"
+    request = rf.get("/admin/")
+    request.user = _User("dana", is_active=False)
     assert not admin.site.has_permission(request)
