@@ -24,6 +24,32 @@ def healthz(request):
     return JsonResponse({"status": "ok"})
 
 
+#: How this console decides who may reach its admin.
+#:
+#: `is_staff` was the gate, and it cannot express what the suite needs: a
+#: person is an editor in one application and a reviewer in another, and
+#: one global boolean answers for both. ROADMAP item 1 replaces it with a
+#: grant check rather than deriving `is_staff` from one, so the two
+#: consoles cannot drift apart.
+#:
+#: A dotted path in settings rather than an import, because this package
+#: installs into Datadesk's image but still has to run and be tested on
+#: its own -- `accounts` is not a dependency of this repository. Datadesk
+#: points this at its grant check; standalone it falls back to `is_staff`,
+#: which is the right answer when there is no grant model to ask.
+ADMIN_GATE_SETTING = "DIRECTORY_ADMIN_GATE"
+
+
+def may_reach_admin(user):
+    """Whether this person may reach the admin of this console."""
+    from django.utils.module_loading import import_string
+
+    path = getattr(settings, ADMIN_GATE_SETTING, "")
+    if not path:
+        return user.is_staff
+    return import_string(path)(user)
+
+
 def admin_login_gateway(request):
     """Stand in front of Django's admin login, which has no Google button.
 
@@ -38,7 +64,7 @@ def admin_login_gateway(request):
       bookmark; let them through.
     """
     if request.user.is_authenticated:
-        if request.user.is_staff:
+        if may_reach_admin(request.user):
             return redirect(request.GET.get("next") or "/admin/")
         return render(
             request,

@@ -110,6 +110,15 @@ DATABASES = {"default": database_config(os.environ)}
 # datadesk.localnewsimpact.org and this host: scoped to the parent
 # domain, it is sent to both. No load balancer and no shared origin are
 # involved. Unset locally, where there is no parent domain to share.
+# Who may reach this console's admin, as a dotted path.
+#
+# Unset means `is_staff`, which is the right answer when this package
+# runs on its own and there is no grant model to ask. Datadesk sets it to
+# its own grant check, so a person's access to the two consoles is
+# decided in one place instead of by a boolean that has to be kept in
+# step by hand (ROADMAP item 1).
+DIRECTORY_ADMIN_GATE = os.environ.get("DIRECTORY_ADMIN_GATE", "")
+
 SESSION_COOKIE_DOMAIN = os.environ.get("SESSION_COOKIE_DOMAIN", "") or None
 CSRF_COOKIE_DOMAIN = SESSION_COOKIE_DOMAIN
 
