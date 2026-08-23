@@ -32,6 +32,16 @@ SERVICE_ROLE = os.environ.get("SERVICE_ROLE", "admin")
 ROOT_URLCONF = "config.urls_portal" if SERVICE_ROLE == "portal" else "config.urls"
 
 INSTALLED_APPS = [
+    # First, and it has to be. This app overrides templates belonging to
+    # django.contrib.admin and to allauth, and APP_DIRS searches
+    # INSTALLED_APPS in order, taking the first match. Behind them, its
+    # admin chrome and its sign-in page would simply never be found.
+    #
+    # They used to be reached through TEMPLATES["DIRS"], which is
+    # searched ahead of every app and so hid this ordering entirely.
+    # They now live in the app, because a package ships what is inside
+    # it and nothing that sits beside it.
+    "directory",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -45,7 +55,6 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "import_export",
     "simple_history",
-    "directory",
 ]
 
 MIDDLEWARE = [
@@ -64,7 +73,10 @@ MIDDLEWARE = [
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        # No project-level template directory: everything lives in the
+        # app that owns it, so it travels when the app is installed
+        # elsewhere.
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [

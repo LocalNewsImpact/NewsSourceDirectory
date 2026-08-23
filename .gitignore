@@ -22,3 +22,8 @@ staticfiles/
 .coverage
 coverage.xml
 htmlcov/
+
+# Build artefacts from packaging the app as a distribution.
+build/
+*.egg-info/
+dist/
