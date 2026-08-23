@@ -116,3 +116,43 @@ def test_sharing_is_off_unless_asked_for():
 
     assert settings.SHARED_IDENTITY is False
     assert not hasattr(settings, "DATABASE_ROUTERS") or settings.DATABASE_ROUTERS == []
+
+
+# --- the shared site table --------------------------------------------------
+
+
+def test_this_service_can_take_its_own_site_row():
+    """django_site is shared with Datadesk and a row cannot be. Both
+    applications shipped SITE_ID = 1, so whichever deployed last owned
+    the row and the other console's site quietly became theirs. Datadesk
+    keeps 1; this takes 2 in the shared database."""
+    import importlib
+    import os
+
+    os.environ["SITE_ID"] = "2"
+    try:
+        module = importlib.reload(importlib.import_module("config.settings"))
+        assert module.SITE_ID == 2
+    finally:
+        del os.environ["SITE_ID"]
+        importlib.reload(importlib.import_module("config.settings"))
+
+
+def test_a_checkout_on_its_own_database_still_uses_the_first_row():
+    """One database, one site row, nothing to collide with."""
+    from django.conf import settings
+
+    assert settings.SITE_ID == 1
+
+
+def test_configure_site_writes_whichever_row_is_ours():
+    """The command already targets settings.SITE_ID rather than a
+    hardcoded 1, which is what makes moving to row 2 a setting and not a
+    code change."""
+    import inspect
+
+    from directory.management.commands.configure_site import Command
+
+    source = inspect.getsource(Command.handle)
+    assert "settings.SITE_ID" in source
+    assert "pk=1" not in source

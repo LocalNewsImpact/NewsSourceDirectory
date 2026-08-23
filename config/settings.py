@@ -132,7 +132,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- authentication ---------------------------------------------------------
 
-SITE_ID = 1
+# django_site is shared with Datadesk now, and a row cannot be. Both
+# applications shipped SITE_ID = 1, so whichever deployed last owned the
+# row and the other console's site silently became theirs. Datadesk keeps
+# 1; this service takes 2 in the shared database. The default stays 1 for
+# a checkout running against its own database, where there is one row and
+# nothing to collide with.
+SITE_ID = int(os.environ.get("SITE_ID", "1"))
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
