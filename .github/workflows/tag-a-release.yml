@@ -1,0 +1,94 @@
+# A merge here reaches production by being tagged.
+#
+# This package installs into Datadesk's image, resolved at build time to the
+# newest release tag of this repository -- there is no pin to bump. So an
+# untagged merge is code that never ships, and nothing says so: CI is green,
+# main is ahead, and production keeps serving the last tag.
+#
+# This closes that. Every merge that touches code tags the version in
+# pyproject.toml and fires Datadesk's deploy. A merge whose version was not
+# bumped fails here rather than disappearing, because a release that cannot
+# be told apart from the last one is not a release.
+
+name: Tag a release
+
+on:
+  push:
+    branches: [main]
+    # Documentation ships nothing, so it needs no version.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # to create the tag
+
+jobs:
+  release:
+    name: Tag it, then deploy it
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # tags, not just the tip
+
+      - name: Read the version
+        id: version
+        run: |
+          # grep, not a TOML parser: this runs before any install, and the
+          # line has one shape.
+          VERSION="$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)"
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version in pyproject.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "pyproject says $VERSION"
+
+      - name: Refuse a release that repeats the last one
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::v$VERSION is already tagged, so this merge ships nothing."
+            echo "Datadesk installs the newest tag of this repository. Code merged"
+            echo "without a version bump never reaches production, and every other"
+            echo "check here passes while it does not."
+            echo ""
+            echo "Bump 'version' in pyproject.toml and merge again."
+            exit 1
+          fi
+
+      - name: Tag it
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push origin "v$VERSION"
+          echo "tagged v$VERSION"
+
+      # Datadesk builds the image this package installs into, and resolves
+      # the newest tag at build time. Without this the tag above sits there
+      # until Datadesk happens to deploy for its own reasons.
+      #
+      # A workflow_dispatch, not a pull request: a release that needs somebody
+      # to approve a pull request is the manual step moved, not removed.
+      - name: Deploy it
+        env:
+          GH_TOKEN: ${{ secrets.DATADESK_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::DATADESK_DEPLOY_TOKEN is not set on this repository."
+            echo "The tag exists but nothing will deploy it. The token needs"
+            echo "Actions: read and write on LocalNewsImpact/datadesk."
+            exit 1
+          fi
+          gh workflow run deploy.yml -R LocalNewsImpact/datadesk
+          echo "asked Datadesk to deploy"
