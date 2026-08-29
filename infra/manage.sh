@@ -18,7 +18,7 @@ PROJECT="${PROJECT:-lnic-source-directory}"
 REGION="${REGION:-us-central1}"
 SERVICE="${SERVICE:-sources-admin}"
 JOB="${JOB:-${SERVICE}-manage}"
-SQL_INSTANCE="${SQL_INSTANCE:-mizzou-news-crawler:us-central1:mizzou-db-prod}"
+SQL_INSTANCE="${SQL_INSTANCE:-mizzou-news-crawler:us-central1:mizzou-db-prod-ssd}"
 
 [[ $# -gt 0 ]] || { grep '^#' "$0" | sed -n '3,12p' | cut -c3-; exit 1; }
 

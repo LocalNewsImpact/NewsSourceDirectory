@@ -46,7 +46,7 @@ permissions:
 
 env:
   PROJECT_ID: lnic-source-directory
-  SQL_INSTANCE: mizzou-news-crawler:us-central1:mizzou-db-prod
+  SQL_INSTANCE: mizzou-news-crawler:us-central1:mizzou-db-prod-ssd
 
 jobs:
   publish:
