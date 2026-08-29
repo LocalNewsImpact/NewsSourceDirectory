@@ -10,7 +10,7 @@
 set -euo pipefail
 
 SCRIPT="${1:?usage: apply.sh <file.sql>}"
-INSTANCE="${INSTANCE:-mizzou-news-crawler:us-central1:mizzou-db-prod}"
+INSTANCE="${INSTANCE:-mizzou-news-crawler:us-central1:mizzou-db-prod-ssd}"
 SQL_PROJECT="${SQL_PROJECT:-mizzou-news-crawler}"
 PORT="${PORT:-5439}"
 DB="${DB:-mizzou}"

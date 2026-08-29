@@ -26,7 +26,7 @@ UPLOADS="${UPLOADS:-${PROJECT_ID}-uploads}"
 # A dedicated instance would be ~$50/month for 2,000 rows; this is $0, and
 # db-g1-small already carries the crawler's production data.
 SQL_PROJECT="${SQL_PROJECT:-mizzou-news-crawler}"
-SQL_INSTANCE="${SQL_INSTANCE:-mizzou-db-prod}"
+SQL_INSTANCE="${SQL_INSTANCE:-mizzou-db-prod-ssd}"
 DB_NAME="${DB_NAME:-directory}"
 DB_USER="${DB_USER:-directory}"
 REPO="${REPO:-app}"
