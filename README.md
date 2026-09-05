@@ -9,6 +9,106 @@ Streamlit prototype — **2,103 outlets and 8,561 coverage records**. Every feat
 of that prototype is preserved; see [MIGRATION.md](MIGRATION.md) for the parity
 inventory and the data problems that have to be fixed on the way.
 
+## The suite
+
+The Source Directory is one of four repositories that share a database
+instance, a contracts package and one set of rules about how a change
+reaches `main`.
+
+### The repositories
+
+| Repository | What it is | What it publishes |
+| --- | --- | --- |
+| `MizzouNewsCrawler` | discovery, extraction, cleaning, classification and enrichment; GKE + Argo Workflows | rows in the crawler database; analytics tables in BigQuery |
+| `datadesk` | the newsroom console and review queue; Django on Cloud Run | decisions written back to the crawler database; published visuals |
+| `NewsSourceDirectory` | the outlet directory and its review queue; Django on Cloud Run at `sources.localnewsimpact.org` | a hashed static feed on `gh-pages`, read by the WordPress plugin |
+| `lnic-contracts` | the shapes one service writes and another reads, the shared CI, the coverage floor | a Python package and two tag series |
+
+### How main is protected
+
+Two layers, deliberately split.
+
+**One organization ruleset**, `Main is reached by pull request`, targets `~ALL` repositories' default branch:
+
+| Rule | Effect |
+| --- | --- |
+| `pull_request` | a change reaches main through a pull request; one approving review, code-owner review where a CODEOWNERS file matches |
+| `non_fast_forward` | no force-push over main |
+| `deletion` | main cannot be deleted |
+
+**Each repository's own ruleset** carries `required_status_checks` and nothing else. That rule cannot move up to the organization: the contexts differ per repository — `checks / integration` exists only in the crawler, `Data quality`, `Public feed`, `Pages payload` and `Image builds` only in the Source Directory — and a context named in a ruleset but never reported blocks every pull request permanently.
+
+The rules the suite works to:
+
+1. Nothing is pushed to origin except on a branch.
+2. Every repository has a pre-push hook that runs `make check`, so what CI will say is known before it is said.
+3. CI checks the pull request, and green is what allows a merge.
+4. An administrator may merge without a code review.
+5. Nobody pushes to main, administrators included.
+
+Four and five look contradictory. The ruleset's bypass list resolves them, and the mode is what does it: `OrganizationAdmin` bypasses in `pull_request` mode, which permits an override **while merging a pull request** and none at all for a direct push.
+
+| Bypass mode | Direct push to main | Merge against the rules |
+| --- | --- | --- |
+| `always` | allowed | allowed |
+| `pull_request` (in use) | refused | allowed, with `--admin` |
+
+So an administrator merges with `gh pr merge <n> --squash --admin`, and a merge without `--admin` waits for a review. The GraphQL field `viewerCanMergeAsAdmin` reports `false` under this configuration and the `--admin` merge succeeds anyway; it describes the legacy branch-protection override, not a ruleset bypass, and is not the field to read.
+
+`delete_branch_on_merge` is on in every repository.
+
+### What enforces what
+
+| Layer | Catches | Where it lives |
+| --- | --- | --- |
+| pre-push hook | a red commit, before it leaves the machine | `scripts/setup-hooks.sh`, one per repository, running that repository's `make check` |
+| shared CI | a red pull request | `lnic-contracts/.github/workflows/python-checks.yml@ci-v1` — lint, typecheck, test, integration, with a Postgres service |
+| `conforms.yml` | a repository drifting from the pattern | `lnic-contracts`, called alongside the checks |
+| the ruleset | a merge that skipped either | GitHub, organization and repository level |
+
+`conforms.yml` fails a repository that stops calling the shared workflow, loses a make target the workflow runs, drops its pre-push hook, lets that hook run the whole suite for a branch deletion, leaves CI's push trigger unscoped so every pull request push runs twice, sets a coverage floor of its own, or stops running the suite's floor from `make test`.
+
+Every stage is a make target — `make lint`, `make test` — never a bare `ruff` or `pytest`. The commands live in each repository's Makefile, which is what a person runs locally, so CI and a local run cannot mean different things. What the targets *do* differs: the crawler runs its tests inside a prebuilt image because its dependencies take minutes to install; the others install them on the runner because they take seconds. Both are `make test`.
+
+The coverage floor is one number, 80%, in `lnic_contracts.coverage_floor`, run by every repository's `make test` and again by the shared workflow. A repository that sets its own is refused.
+
+### How the repositories are joined
+
+**Data.** One Cloud SQL instance serves all three applications. The crawler owns its database; the Source Directory's tables live in a `directory` schema alongside shared identity tables in `public`; datadesk has its own database and reaches the crawler's through a **read-only role** (`infra/sql/create_crawler_readonly_role.sql`, password in Secret Manager), with a separate read-write connection for the decisions the review queue writes back. Postgres enforces the read-only half; it is not a convention.
+
+**Packages.** `lnic-contracts` is installed from a tag tarball, pinned in each consumer's requirements. `NewsSourceDirectory` is installed into datadesk's base image from a pinned git tag, so the directory front end datadesk serves is a released version rather than whatever `main` happens to be; tagging a directory release dispatches datadesk's deploy.
+
+**Versioning.** `lnic-contracts` carries two tag series, because the cadences differ. `vX.Y.Z` versions the Python package — the shapes two services must agree on, where a renamed key strands data at runtime with no import error to catch it. `ci-vX.Y.Z` versions the workflows, and `ci-v1` follows the newest of them, so a CI fix reaches all three repositories without a pull request in each. `release-ci.yml` runs `make check` before moving the major tag.
+
+**Publishing.** The crawler exports to BigQuery. The Source Directory publishes a hashed static feed to `gh-pages`, which the WordPress plugin reads. datadesk publishes visuals.
+
+### This repository's place in it
+
+The directory is the registry of outlets. Its front end is served from
+two places: this repository's own Cloud Run service at
+`sources.localnewsimpact.org`, and datadesk, which installs this
+package into its base image at a pinned git tag -- so what datadesk
+serves is a released version rather than whatever `main` holds. Tagging
+a release here dispatches datadesk's deploy, and `tests/test_release.py`
+refuses a merge at a version that is already tagged, because the merge
+is what tags the release.
+
+Required checks here are the widest in the suite: `checks / lint`,
+`checks / test`, `conforms / conforms`, and four of this repository's
+own -- `Data quality`, `Public feed`, `Pages payload` and `Image
+builds`. The feed is a published artefact with an explicit column
+allowlist, so its guarantees are checked before a merge rather than
+after a publish.
+
+The project is `lnic-source-directory`, separate from the crawler's.
+The `directory` database is not: it lives on the crawler's Cloud SQL
+instance (`mizzou-news-crawler:us-central1:mizzou-db-prod-ssd`), which
+datadesk also uses, so isolation is database-and-user level rather than
+instance level. See [infra/README.md](infra/README.md) for why that was
+chosen and what it costs.
+
+---
+
 ## Documentation
 
 | | |
@@ -192,9 +292,16 @@ it is **not unique**. Identity is `host + first meaningful path segment`, or
 ## Relationship to the crawler
 
 [MizzouNewsCrawler](https://github.com/LocalNewsImpact/MizzouNewsCrawler) is a
-**separate system in a separate GCP project**. This repo shares no infrastructure
-with it and needs no access to it. Contributors here never touch the crawler's
-production project.
+**separate system in a separate GCP project**. Contributors here never touch the
+crawler's production project, and this repository needs no access to the
+crawler's data.
+
+One piece of infrastructure is shared, and it is worth being exact about: the
+`directory` database lives on the crawler's Cloud SQL instance
+(`mizzou-news-crawler:us-central1:mizzou-db-prod-ssd`), borrowed rather than
+bought again -- a dedicated instance would be roughly $50/month for a database
+this size. Isolation is at the database-and-user level, not the instance level.
+[infra/README.md](infra/README.md) records the decision.
 
 Eventually the crawler may be pointed at subsets of this registry. Flow is
 **one-way** — registry upstream, crawler downstream, no write-back. A
