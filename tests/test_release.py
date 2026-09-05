@@ -8,6 +8,7 @@ workflow that closes that gap.
 """
 
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -85,8 +86,6 @@ def test_the_version_is_ahead_of_every_tag_that_exists():
     Checked against the tags that exist rather than a version written here,
     which goes stale the moment one is cut.
     """
-    import subprocess
-
     version = ""
     for line in (ROOT / "pyproject.toml").read_text().splitlines():
         if line.startswith("version = "):
@@ -95,13 +94,7 @@ def test_the_version_is_ahead_of_every_tag_that_exists():
     assert version, "pyproject.toml has no version"
 
     try:
-        tags = subprocess.run(
-            ["git", "tag", "-l", "v*"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        ).stdout.split()
+        tags = _tags()
     except (OSError, subprocess.SubprocessError):
         return  # no git, or a checkout without tags; the workflow still checks
 
@@ -121,10 +114,42 @@ def test_the_version_is_ahead_of_every_tag_that_exists():
             "workflow must call python-checks.yml with fetch-tags: true."
         )
         pytest.skip("no tags in this checkout")
-    assert f"v{version}" not in tags, (
+    if f"v{version}" not in tags:
+        return
+    # On main the version IS tagged, at this very commit: the merge that
+    # made HEAD released it, and CI on that push runs beside the tagging.
+    # The first run with real tags failed here, on main, one minute after
+    # v0.5.0 was cut from the commit it was checking. A tag that points
+    # elsewhere is an unbumped version; a tag that points here is a
+    # release, which is the state main is meant to be in.
+    assert _tag_is_this_commit(f"v{version}"), (
         f"v{version} is already tagged, so the next merge cannot release. "
         "Bump the version in pyproject.toml."
     )
+
+
+def _tags():
+    return subprocess.run(
+        ["git", "tag", "-l", "v*"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    ).stdout.split()
+
+
+def _tag_is_this_commit(tag):
+    def rev(name):
+        return subprocess.run(
+            ["git", "rev-parse", "--verify", f"{name}^{{commit}}"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout.strip()
+
+    head = rev("HEAD")
+    return bool(head) and rev(tag) == head
 
 
 # --- the release check's own failure paths ----------------------------------
@@ -135,20 +160,20 @@ def test_the_version_is_ahead_of_every_tag_that_exists():
 # assumed.
 
 
-def _run_release_check(tags, ci):
-    """Call the check with a chosen tag list and CI state."""
-    import subprocess as _sp
+def _run_release_check(tags, ci, tagged_here=False):
+    """Call the check with a chosen tag list, CI state, and whether the
+    version's tag points at the commit under test."""
+    import sys
     from unittest import mock
 
     env = {k: v for k, v in os.environ.items() if k != "CI"}
     if ci:
         env["CI"] = "true"
 
-    class _Result:
-        stdout = tags
-
+    me = sys.modules[__name__]
     with (
-        mock.patch.object(_sp, "run", return_value=_Result()),
+        mock.patch.object(me, "_tags", return_value=tags.split()),
+        mock.patch.object(me, "_tag_is_this_commit", return_value=tagged_here),
         mock.patch.dict(os.environ, env, clear=True),
     ):
         test_the_version_is_ahead_of_every_tag_that_exists()
@@ -179,3 +204,14 @@ def test_a_version_that_is_already_tagged_fails():
 
 def test_a_version_ahead_of_every_tag_passes():
     _run_release_check("v0.1.0 v0.2.0", ci=True)
+
+
+def test_a_version_tagged_at_this_commit_is_a_release_not_a_miss():
+    """main, one push after a merge: the tag exists because this commit
+    is what it points at."""
+    version = ""
+    for line in (ROOT / "pyproject.toml").read_text().splitlines():
+        if line.startswith("version = "):
+            version = line.split('"')[1]
+            break
+    _run_release_check(f"v0.1.0 v{version}", ci=True, tagged_here=True)
