@@ -1,9 +1,23 @@
-# Python here must match Dockerfile.base. Testing on one runtime and
-# deploying another is how a green suite ships a broken container.
+# The suite's CI, called rather than restated.
+#
+# This repository defined eight jobs, each inlining its own commands --
+# ruff here, pytest there, and four stages that existed only as shell
+# inside this file and could not be run on a laptop at all. The crawler
+# and datadesk each had their own arrangement of the same ideas, so a
+# rule learned in one stayed there.
+#
+# Now every stage is a make target. The first four come from
+# lnic-contracts (docs/shared-ci.md), which owns their order, the
+# Postgres service and the Python version; the rest are this
+# repository's own, because a public feed and a deployment image are not
+# things the other repositories have. They are jobs here, but they run
+# `make`, so each is runnable by a person before they push.
+#
+# `conforms` fails the build if this drifts back to inline stages.
 name: CI
 
 on:
-  push:            # every branch, so a contributor sees failures before opening a PR
+  push:
   pull_request:
   workflow_dispatch:
 
@@ -15,261 +29,85 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-      - name: Install the pinned ruff
-        run: pip install "$(grep -oE '^ruff==[0-9.]+' requirements-dev.txt)"
-      - name: ruff check
-        run: ruff check .
-      - name: ruff format
-        run: ruff format --check .
+  checks:
+    uses: LocalNewsImpact/lnic-contracts/.github/workflows/python-checks.yml@ci-v1
+    with:
+      install: make .venv
+      # mypy is not wired up here yet; ruff runs inside `make lint`.
+      typecheck: false
+      integration: true
+      # tests/test_release.py asserts pyproject's version is not one
+      # already released. Without the tags it found none, took its
+      # "nothing to check" path and passed -- so main sat at 0.4.0 with
+      # v0.4.0 tagged, green. The test now fails in CI if the tags are
+      # missing, so this flag cannot be quietly dropped again.
+      fetch-tags: true
 
-  tests:
-    name: Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-          cache: pip
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
-      - name: Unit tests
-        run: python -m pytest -m "not integration"
+  conforms:
+    uses: LocalNewsImpact/lnic-contracts/.github/workflows/conforms.yml@ci-v1
+    with:
+      typecheck: false
+      integration: true
 
-  integration:
-    name: Integration
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: directory
-          POSTGRES_PASSWORD: directory
-          POSTGRES_DB: directory
-        ports: ["5434:5432"]
-        options: >-
-          --health-cmd "pg_isready -U directory -d directory"
-          --health-interval 2s --health-timeout 3s --health-retries 20
-    env:
-      DATABASE_URL: postgres://directory:directory@localhost:5434/directory
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-          cache: pip
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
-      - name: Migrations are complete and committed
-        run: python manage.py makemigrations --check --dry-run
-      # The whole suite, not just the integration marker: a coverage number from
-      # a partial run is worse than none. The floor lives in pyproject.toml and
-      # fails the job if it drops.
-      - name: Integration tests and coverage floor
-        run: python -m pytest --cov --cov-report=term --cov-report=xml
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: coverage
-          path: coverage.xml
+  # --- this repository's own stages ------------------------------------
+  #
+  # Not in the shared workflow, because no other repository publishes a
+  # feed or builds this image. Each is one make target, so the check and
+  # the local command cannot differ.
 
   data-quality:
     name: Data quality
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
-      # The fixture is real prototype data and still carries its defects, so it
-      # is expected to FAIL. This job asserts the rules still catch them —
-      # a clean run here would mean the checks have stopped working.
-      - name: Rules detect the known defects
-        run: |
-          set +e
-          python -m checks tests/fixtures/outlets_sample.csv \
-            --coverage tests/fixtures/coverage_sample.csv | tee report.txt
-          status=${PIPESTATUS[0]}
-          set -e
-          if [ "$status" -eq 0 ]; then
-            echo "::error::Fixture passed all rules — the defect detection has regressed."
-            exit 1
-          fi
-          for rule in no_placeholder_domain merge_requires_review no_header_artifacts no_url_in_medium; do
-            grep -q "$rule" report.txt || { echo "::error::$rule no longer fires"; exit 1; }
-          done
-          echo "All expected defects detected."
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: data-quality-report
-          path: report.txt
+          python-version: "3.11"
+          cache: pip
+      - run: make .venv
+      - run: make data-quality
 
   feed:
     name: Public feed
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "22"
-      - run: npm ci || npm install
-      - name: Build the feed from the fixture
-        run: |
-          python -m feed tests/fixtures/outlets_sample.csv \
-            --coverage tests/fixtures/coverage_sample.csv \
-            --out dist/feed --generated-at 2026-01-01T00:00:00Z --allow-errors
-          cat dist/feed/manifest.json
-      - name: Feed carries no admin columns
-        run: |
-          python - <<'PY'
-          import json, pathlib, sys
-          sys.path.insert(0, ".")
-          from checks.rules import PUBLIC_FIELDS
-          from checks.rules import COVERAGE_PUBLIC_FIELDS
-          base = pathlib.Path("dist/feed")
-          m = json.loads((base / "manifest.json").read_text())
-
-          rows = json.loads((base / m["files"]["sites"]["path"]).read_text())
-          extra = sorted({k for r in rows for k in r} - PUBLIC_FIELDS)
-          if extra:
-              print(f"::error::sites feed carries non-public columns: {extra}")
-              raise SystemExit(1)
-          print(f"sites: {len(rows)} rows, fields all allowlisted")
-
-          cov_meta = m["files"].get("coverage")
-          if not cov_meta:
-              print("::error::coverage feed was not published")
-              raise SystemExit(1)
-          cov = json.loads((base / cov_meta["path"]).read_text())
-          extra = sorted({k for r in cov for k in r} - COVERAGE_PUBLIC_FIELDS)
-          if extra:
-              print(f"::error::coverage feed carries non-public columns: {extra}")
-              raise SystemExit(1)
-          print(f"coverage: {len(cov)} rows, fields all allowlisted")
-
-          if m["files"]["sites"]["load"] != "eager" or cov_meta["load"] != "lazy":
-              print("::error::load hints wrong; sites must be eager and coverage lazy")
-              raise SystemExit(1)
-
-          known = {r["outlet_id"] for r in rows}
-          orphans = {r["outlet_id"] for r in cov} - known
-          if orphans:
-              print(f"::error::coverage rows with no published outlet: {sorted(orphans)[:5]}")
-              raise SystemExit(1)
-          print("coverage joins cleanly to sites on outlet_id")
-          PY
-      - name: Search index builds against the same feed
-        run: node tools/build-search-index.mjs dist/feed
-      - name: Feed build is reproducible
-        run: |
-          cp dist/feed/manifest.json /tmp/first.json
-          rm -rf dist
-          python -m feed tests/fixtures/outlets_sample.csv \
-            --coverage tests/fixtures/coverage_sample.csv \
-            --out dist/feed --generated-at 2026-01-01T00:00:00Z --allow-errors
-          python - <<'PY'
-          import json, pathlib
-          a = json.loads(pathlib.Path("/tmp/first.json").read_text())
-          b = json.loads(pathlib.Path("dist/feed/manifest.json").read_text())
-          if a["files"]["sites"]["sha256"] != b["files"]["sites"]["sha256"]:
-              print("::error::feed build is not reproducible")
-              raise SystemExit(1)
-          print("reproducible:", b["files"]["sites"]["sha256"][:12])
-          PY
-
-  image:
-    name: Image builds
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Build the deployment image
-        run: |
-          # Both stages, so a change to either is checked before it can merge.
-          docker build -f Dockerfile.base -t nsd-base:ci .
-          docker build --build-arg BASE_IMAGE=nsd-base:ci -t news-source-directory .
-          echo "base: $(docker images nsd-base:ci --format '{{.Size}}')"
-          echo "app : $(docker images news-source-directory --format '{{.Size}}')"
-      - name: It starts and answers, without a database
-        run: |
-          docker run -d --name smoke -p 8080:8080 \
-            -e DJANGO_SECRET_KEY=ci -e DJANGO_ALLOWED_HOSTS='*' \
-            -e DATABASE_URL='postgres://nobody:nobody@127.0.0.1:1/none' \
-            news-source-directory
-          for _ in $(seq 1 20); do
-            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/_health || true)"
-            [ -n "$code" ] && [ "$code" != "000" ] && break
-            sleep 2
-          done
-          echo "_health -> $code"
-          docker logs smoke | tail -20
-          # 503 is the correct answer with no database: the service is up and
-          # honest about being unable to serve. 200 here would mean the health
-          # check is not actually checking anything.
-          [ "$code" = "503" ] || { echo "::error::expected 503, got $code"; exit 1; }
-          docker rm -f smoke
-
-  e2e:
-    name: Browser
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-      - run: npm ci || npm install
-      - name: Install the browser
-        run: npx playwright install --with-deps chromium
-      # Drives the mockup against the committed feed: metric tiles, the default
-      # tab, search, facets and chips, card/table views, the lazily loaded
-      # coverage payload, and CSV export. Assertions are relative, so
-      # republishing the feed does not turn this red.
-      - name: Directory renders and responds
-        run: npx playwright test
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: playwright-trace
-          path: test-results/
+      - run: make .venv
+      - run: make feed-check
 
   pages:
     name: Pages payload
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - name: Mockup stays servable
-        run: |
-          test -f mockup/index.html
-          test -f .nojekyll
-          size=$(wc -c < mockup/index.html)
-          echo "mockup/index.html: $size bytes"
-          # GitHub Pages serves up to 100MB per file; stay well inside it.
-          if [ "$size" -gt 20000000 ]; then
-            echo "::error::mockup exceeds 20MB"; exit 1
-          fi
-      - name: Internal doc links resolve
-        run: |
-          fail=0
-          for f in README.md MIGRATION.md; do
-            grep -oE '\]\([^)#][^)]*\)' "$f" | sed 's/^](//;s/)$//' \
-              | grep -vE '^https?://' | while read -r link; do
-                  target="${link%%#*}"
-                  [ -z "$target" ] && continue
-                  if [ ! -e "$target" ]; then
-                    echo "::error file=$f::broken link: $target"; exit 1
-                  fi
-                done || fail=1
-          done
-          exit $fail
+      - uses: actions/checkout@v4
+      - run: make pages
+
+  image:
+    name: Image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make image
+
+  e2e:
+    name: Browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: make e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

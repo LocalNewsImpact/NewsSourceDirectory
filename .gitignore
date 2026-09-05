@@ -27,3 +27,9 @@ htmlcov/
 build/
 *.egg-info/
 dist/
+
+# Pre-push hook logs (scripts/setup-hooks.sh)
+logs/pre-push/
+
+# Written by scripts/ci/data-quality.sh
+report.txt

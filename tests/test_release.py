@@ -7,8 +7,10 @@ main is ahead, and production keeps serving the last tag. These assert the
 workflow that closes that gap.
 """
 
+import os
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -103,9 +105,77 @@ def test_the_version_is_ahead_of_every_tag_that_exists():
     except (OSError, subprocess.SubprocessError):
         return  # no git, or a checkout without tags; the workflow still checks
 
+    # A check that returns early when its input is missing is not a
+    # check. This returned here for the whole life of the repository:
+    # CI checked out shallow, `git tag -l` found nothing, and the
+    # assertion below never ran -- so main sat at 0.4.0 with v0.4.0
+    # tagged, green, and only a local run ever said otherwise.
+    #
+    # In CI the tags are guaranteed (python-checks.yml is called with
+    # fetch-tags: true), so finding none is a broken setup and is
+    # reported as one. Off CI it stays a skip: a fresh clone without
+    # tags is a normal thing to have.
     if not tags:
-        return
+        assert not os.environ.get("CI"), (
+            "no tags in CI, so the release check could not run. The CI "
+            "workflow must call python-checks.yml with fetch-tags: true."
+        )
+        pytest.skip("no tags in this checkout")
     assert f"v{version}" not in tags, (
         f"v{version} is already tagged, so the next merge cannot release. "
         "Bump the version in pyproject.toml."
     )
+
+
+# --- the release check's own failure paths ----------------------------------
+#
+# Written with the fix. The check passed for the life of the repository by
+# finding no tags and returning, so the one path that ever ran in CI was
+# the one that could not fail. Each state is asserted here rather than
+# assumed.
+
+
+def _run_release_check(tags, ci):
+    """Call the check with a chosen tag list and CI state."""
+    import subprocess as _sp
+    from unittest import mock
+
+    env = {k: v for k, v in os.environ.items() if k != "CI"}
+    if ci:
+        env["CI"] = "true"
+
+    class _Result:
+        stdout = tags
+
+    with (
+        mock.patch.object(_sp, "run", return_value=_Result()),
+        mock.patch.dict(os.environ, env, clear=True),
+    ):
+        test_the_version_is_ahead_of_every_tag_that_exists()
+
+
+def test_no_tags_in_ci_is_a_broken_setup_not_a_pass():
+    """The bug itself. CI checked out shallow, the check found nothing and
+    returned, and main sat at 0.4.0 with v0.4.0 tagged -- green."""
+    with pytest.raises(AssertionError, match="no tags in CI"):
+        _run_release_check("", ci=True)
+
+
+def test_no_tags_outside_ci_is_a_skip():
+    """A fresh clone without tags is a normal thing to have."""
+    with pytest.raises(pytest.skip.Exception):
+        _run_release_check("", ci=False)
+
+
+def test_a_version_that_is_already_tagged_fails():
+    version = ""
+    for line in (ROOT / "pyproject.toml").read_text().splitlines():
+        if line.startswith("version = "):
+            version = line.split('"')[1]
+            break
+    with pytest.raises(AssertionError, match="already tagged"):
+        _run_release_check(f"v0.1.0 v{version}", ci=True)
+
+
+def test_a_version_ahead_of_every_tag_passes():
+    _run_release_check("v0.1.0 v0.2.0", ci=True)
