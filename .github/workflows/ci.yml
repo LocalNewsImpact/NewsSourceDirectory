@@ -35,7 +35,9 @@ jobs:
       install: make .venv
       # mypy is not wired up here yet; ruff runs inside `make lint`.
       typecheck: false
-      integration: true
+      # The whole suite runs under `make test`, on the test job's
+      # Postgres; there is no separate integration stage any more.
+      integration: false
       # tests/test_release.py asserts pyproject's version is not one
       # already released. Without the tags it found none, took its
       # "nothing to check" path and passed -- so main sat at 0.4.0 with
@@ -47,7 +49,7 @@ jobs:
     uses: LocalNewsImpact/lnic-contracts/.github/workflows/conforms.yml@ci-v1
     with:
       typecheck: false
-      integration: true
+      integration: false
 
   # --- this repository's own stages ------------------------------------
   #
