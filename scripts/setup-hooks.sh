@@ -36,6 +36,25 @@ cat > "$HOOK" <<'HOOK_BODY'
 # Regenerate with ./scripts/setup-hooks.sh
 set -uo pipefail
 
+# A branch DELETION has nothing to check. pre-push receives one line per
+# refspec on stdin -- "<local_ref> <local_sha> <remote_ref> <remote_sha>"
+# -- and a deletion's local_sha is all zeros. Without this, deleting a
+# remote branch ran the whole suite to push nothing.
+ZERO=0000000000000000000000000000000000000000
+saw_refspec=""
+has_commits=""
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+    saw_refspec=yes
+    [ "$local_sha" != "$ZERO" ] || continue
+    has_commits=yes
+done
+# Only skip when git said so. Run by hand, with nothing on stdin, the
+# checks still run: an empty read must not be a way past them.
+if [ -n "$saw_refspec" ] && [ -z "$has_commits" ]; then
+    echo "Nothing to check: branch deletion(s) only."
+    exit 0
+fi
+
 # `git rev-parse` rather than a path relative to the hook: a worktree's
 # hooks live in the parent's .git directory, so deriving the root from
 # $0 runs the checks against the wrong tree.

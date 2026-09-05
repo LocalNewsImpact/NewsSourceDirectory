@@ -17,7 +17,16 @@
 name: CI
 
 on:
+  # main only. An unscoped `push:` ran this whole workflow a second time
+  # on every pull request push -- once for refs/heads/<branch>, once for
+  # refs/pull/N/merge -- and `concurrency` does not collapse the pair,
+  # because its group is the ref and the two refs differ.
+  #
+  # A branch pushed with no pull request open now gets no run here. The
+  # pre-push hook already ran `make check` on that commit, and the pull
+  # request runs it again.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
