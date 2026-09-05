@@ -33,7 +33,7 @@ jobs:
     name: Tag it, then deploy it
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0     # tags, not just the tip
 
