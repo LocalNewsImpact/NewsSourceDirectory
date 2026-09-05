@@ -23,7 +23,13 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: python -m pytest
+        # This repository's interpreter, not whatever `python` PATH
+        # happens to resolve to. With another checkout's venv active it
+        # found no Django and failed the commit with eleven import
+        # errors that had nothing to do with the change being made --
+        # the same fault as a CI stage that runs something other than
+        # what a person runs.
+        entry: .venv/bin/python -m pytest
         language: system
         pass_filenames: false
         types: [python]

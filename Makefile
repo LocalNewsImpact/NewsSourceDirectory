@@ -43,6 +43,23 @@ hooks: $(VENV) ## Install the pre-commit hooks (optional; make check is the same
 
 # --- database ---------------------------------------------------------------
 
+# Where the tests connect, and who starts the server.
+#
+# CI provides Postgres as a service container and sets the standard PG*
+# variables (lnic-contracts python-checks.yml). Those win where they are
+# set, and no compose database is started -- `make test-integration`
+# means the same thing on a laptop and on a runner, which is the point of
+# calling make from CI at all.
+ifdef PGHOST
+DATABASE_URL ?= postgres://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)
+DB_READY :=
+else
+DATABASE_URL ?= postgres://directory:directory@localhost:5434/directory
+DB_READY := db-up
+endif
+export DATABASE_URL
+
+
 .PHONY: db-up
 db-up: ## Start local Postgres and wait until it accepts connections
 	docker compose up -d db
@@ -103,18 +120,40 @@ test: $(VENV) ## Unit tests — no database needed
 	$(PY) -m pytest -m "not integration"
 
 .PHONY: test-integration
-test-integration: $(VENV) db-up ## Integration tests — needs Postgres
-	$(PY) -m pytest -m integration
+test-integration: $(VENV) $(DB_READY) ## Integration tests — needs Postgres
+# The migrations check and the coverage floor were in CI only. This
+# target ran `pytest -m integration` and nothing else, so a developer
+# could run it green and still fail CI on an uncommitted migration or on
+# coverage -- the exact gap the shared pattern exists to close. Coverage
+# is measured over the whole suite, as CI measured it, because the floor
+# (pyproject fail_under) was set against that number.
+	$(PY) manage.py makemigrations --check --dry-run
+	$(PY) -m pytest --cov --cov-report=term --cov-report=xml
 
 .PHONY: data-quality
-data-quality: $(VENV) ## Run the rules against the fixture
-	-$(PY) -m checks tests/fixtures/outlets_sample.csv \
-	  --coverage tests/fixtures/coverage_sample.csv
+data-quality: $(VENV) ## The rules still detect the fixture's known defects
+# This used to be a bare run with a `-` prefix, so it reported whatever
+# it found and could not fail. CI meanwhile asserted the opposite: the
+# fixture MUST fail the rules, and four named rules must fire. The
+# assertion is the check, so it lives here now and CI calls it.
+	PYTHON=$(PY) scripts/ci/data-quality.sh
 
 .PHONY: feed
 feed: $(VENV) ## Build the public feed from the fixture into dist/
 	$(PY) -m feed tests/fixtures/outlets_sample.csv \
 	  --coverage tests/fixtures/coverage_sample.csv --out dist/feed --allow-errors
+
+.PHONY: feed-check
+feed-check: $(VENV) node_modules ## The feed leaks no admin columns and builds reproducibly
+	PYTHON=$(PY) scripts/ci/feed.sh
+
+.PHONY: pages
+pages: ## The mockup stays servable and the docs' links resolve
+	scripts/ci/pages.sh
+
+.PHONY: image
+image: ## Both image stages build, and the container answers with no database
+	scripts/ci/image.sh
 
 .PHONY: coverage
 coverage: $(VENV) db-up ## Whole suite with a coverage report and the floor
@@ -126,7 +165,10 @@ e2e: node_modules ## Browser tests against the mockup and the committed feed
 	npx playwright test
 
 .PHONY: check
-check: lint test test-integration ## Everything CI runs
+check: lint test test-integration data-quality feed-check pages ## Everything CI runs
+# `image` is deliberately not here: it builds two docker images and runs
+# a container, which is minutes rather than seconds. CI runs it as its
+# own job; `make image` runs it on demand.
 
 .PHONY: clean
 clean: ## Remove build and cache artefacts
