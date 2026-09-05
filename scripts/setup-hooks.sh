@@ -3,11 +3,17 @@
 #
 # Run once per checkout:  ./scripts/setup-hooks.sh
 #
-# The hook runs `make check`, which is what CI runs -- lint, the unit
-# tests, the integration tests with the migrations check and the coverage
-# floor, the data-quality rules, the public feed's guarantees and the
-# Pages payload. One definition, so the hook cannot drift from CI: if the
-# hook passes, the push passes.
+# The hook runs `make check`, which is what CI runs -- lint, the whole
+# suite with the migrations check and the coverage floor, the data-quality
+# rules, the public feed's guarantees and the Pages payload. One
+# definition, so the hook cannot drift from CI: if the hook passes, the
+# push passes.
+#
+# It fetches the remote's tags first. tests/test_release.py judges the
+# version against the tags the checkout has, and a checkout whose tags
+# are behind passes a version main has already released -- which is how
+# the second unbumped version reached CI with the hook installed and
+# green.
 #
 # `make image` is deliberately not in `check`. It builds two docker
 # images and runs a container, which is minutes rather than seconds; CI
@@ -39,8 +45,15 @@ cd "$REPO_ROOT" || exit 1
 mkdir -p logs/pre-push
 LOG="logs/pre-push/pre-push-$(date +%Y%m%d_%H%M%S).log"
 
+# The remote being pushed to, as git passes it. The release check reads
+# the checkout's tags, and they are only as current as the last fetch.
+REMOTE="${1:-origin}"
+if ! git fetch -q --tags "$REMOTE"; then
+  echo "⚠️  Could not fetch tags from $REMOTE; the release check runs against local tags."
+fi
+
 echo "🔍 Running everything CI runs (make check)..."
-echo "   lint, tests, integration + coverage, data quality, feed, pages"
+echo "   lint, tests + coverage floor, data quality, feed, pages"
 echo
 
 if make check 2>&1 | tee "$LOG"; then
