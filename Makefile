@@ -47,9 +47,9 @@ hooks: $(VENV) ## Install the pre-commit hooks (optional; make check is the same
 #
 # CI provides Postgres as a service container and sets the standard PG*
 # variables (lnic-contracts python-checks.yml). Those win where they are
-# set, and no compose database is started -- `make test-integration`
-# means the same thing on a laptop and on a runner, which is the point of
-# calling make from CI at all.
+# set, and no compose database is started -- `make test` means the same
+# thing on a laptop and on a runner, which is the point of calling make
+# from CI at all.
 ifdef PGHOST
 DATABASE_URL ?= postgres://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)
 DB_READY :=
@@ -116,19 +116,18 @@ fmt: $(VENV) ## Apply formatting and safe fixes
 	$(VENV)/bin/ruff format .
 
 .PHONY: test
-test: $(VENV) ## Unit tests — no database needed
-	$(PY) -m pytest -m "not integration"
-
-.PHONY: test-integration
-test-integration: $(VENV) $(DB_READY) ## Integration tests — needs Postgres
-# The migrations check and the coverage floor were in CI only. This
-# target ran `pytest -m integration` and nothing else, so a developer
-# could run it green and still fail CI on an uncommitted migration or on
-# coverage -- the exact gap the shared pattern exists to close. Coverage
-# is measured over the whole suite, as CI measured it, because the floor
-# (pyproject fail_under) was set against that number.
+test: $(VENV) $(DB_READY) ## The whole suite on Postgres, then the suite's coverage floor
+# One target, the whole suite. It used to be two: `test` ran the unit
+# tests without a database and `test-integration` ran everything with
+# coverage, so the number the floor judged came from the second and a
+# green `make test` said nothing about it. Coverage is over the whole
+# suite because that is what the floor was set against, and the floor
+# is lnic-contracts' -- one number for every repository in the suite,
+# read from coverage.xml. The unit subset is still `pytest -m "not
+# integration"` for a quick loop before Docker is up.
 	$(PY) manage.py makemigrations --check --dry-run
 	$(PY) -m pytest --cov --cov-report=term --cov-report=xml
+	$(PY) -m lnic_contracts.coverage_floor coverage.xml
 
 .PHONY: data-quality
 data-quality: $(VENV) ## The rules still detect the fixture's known defects
@@ -155,22 +154,18 @@ pages: ## The mockup stays servable and the docs' links resolve
 image: ## Both image stages build, and the container answers with no database
 	scripts/ci/image.sh
 
-.PHONY: coverage
-coverage: $(VENV) db-up ## Whole suite with a coverage report and the floor
-	$(PY) -m pytest --cov --cov-report=term
-
 .PHONY: e2e
 e2e: node_modules ## Browser tests against the mockup and the committed feed
 	npx playwright install --with-deps chromium
 	npx playwright test
 
 .PHONY: check
-check: lint test test-integration data-quality feed-check pages ## Everything CI runs
+check: lint test data-quality feed-check pages ## Everything CI runs
 # `image` is deliberately not here: it builds two docker images and runs
 # a container, which is minutes rather than seconds. CI runs it as its
 # own job; `make image` runs it on demand.
 
 .PHONY: clean
 clean: ## Remove build and cache artefacts
-	rm -rf dist .pytest_cache .ruff_cache htmlcov .coverage
+	rm -rf dist .pytest_cache .ruff_cache htmlcov .coverage coverage.xml
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

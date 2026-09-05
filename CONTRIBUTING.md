@@ -129,15 +129,17 @@ different `container_name` and port, if the two need separate data.
 **Unit** tests need nothing but the virtualenv. They cover the data-quality
 rules, the identity rule, the feed builder, and the mockup's structure.
 
-**Integration** tests are marked `@pytest.mark.integration` and need Postgres:
+**Integration** tests are marked `@pytest.mark.integration` and need Postgres.
 
 ```bash
-make test          # unit only
-make test-integration
-make check         # lint, format check, and both suites — what CI runs
+make test          # the whole suite on Postgres, with coverage and the floor
+make check         # lint, format check, the suite, data quality, feed, pages — what CI runs
+.venv/bin/pytest -m "not integration"   # the unit subset, no Docker needed
 ```
 
-CI runs both on every branch, not only on pull requests.
+`make test` starts the database itself and ends with the suite's coverage
+floor (`lnic_contracts.coverage_floor`, one number for every repository).
+CI runs the same target on every branch, not only on pull requests.
 
 ## The workflow
 
