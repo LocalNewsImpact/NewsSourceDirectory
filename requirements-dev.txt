@@ -8,3 +8,7 @@ pytest-django==4.14.0
 pytest-cov==7.1.0
 ruff==0.16.3
 pre-commit==4.6.2
+
+# The suite's coverage floor. `make test` runs lnic_contracts.coverage_floor
+# over coverage.xml; the number lives there, not in pyproject.
+lnic-contracts @ https://github.com/LocalNewsImpact/lnic-contracts/archive/refs/tags/v0.3.0.tar.gz

@@ -16,22 +16,21 @@ Publish        static feed to gh-pages
 ## 1. Local
 
 ```bash
-make check        # lint, format, unit, integration — what CI runs
-make coverage     # whole suite with the coverage floor
+make check        # lint, format, the whole suite, the floor — what CI runs
+make test         # the suite on Postgres, with coverage and the floor
 make e2e          # browser tests against the mockup
 ```
 
-Tests are split by pytest marker:
+`make test` starts the Postgres container itself, runs the migrations check
+and every test, and hands `coverage.xml` to `lnic_contracts.coverage_floor` —
+the one floor every repository in the suite is held to, kept in
+[lnic-contracts](https://github.com/LocalNewsImpact/lnic-contracts), not here.
+Tests that need the database are marked `@pytest.mark.integration`; the rest
+run without one, so `pytest -m "not integration"` is a quick loop before
+Docker is up. It is a subset, and the floor is not judged on it.
 
-| Suite | Count | Requires |
-|---|---|---|
-| Unit | 163 | virtualenv |
-| Integration | 118 | Postgres on port 5434 |
-
-The split lets `make test` pass before Docker is working. `make test-integration`
-starts the container itself.
-
-Port 5434 avoids 5432 (system Postgres) and 5433 (the crawler's test container).
+Port 5434 avoids 5432 (the crawler), 5433 (the crawler's scratch container)
+and 5435 (datadesk's test container).
 Two checkouts of this repository share one database container — see
 [CONTRIBUTING.md](../CONTRIBUTING.md).
 

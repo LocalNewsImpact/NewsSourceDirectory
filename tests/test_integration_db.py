@@ -1,9 +1,10 @@
 """Integration tests: these need a live Postgres.
 
-    make test-integration
+    make test
 
-Kept separate from the unit suite so a new contributor can run `make test` and
-get a green result before Docker is working. CI runs both.
+starts one. The marker is what lets `pytest -m "not integration"` run the
+rest of the suite before Docker is working; the floor is judged on the
+whole suite, which is what `make test` and CI run.
 """
 
 import os
