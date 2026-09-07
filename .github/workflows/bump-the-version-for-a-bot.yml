@@ -1,0 +1,100 @@
+# A bot cannot know this repository releases by version.
+#
+# Datadesk installs the newest tag of this repository, so every merge that
+# ships code must carry a new version in pyproject.toml -- `tag-a-release.yml`
+# refuses the merge otherwise, and `tests/test_release.py` fails the pull
+# request before that. Both are right, and neither is something Renovate can
+# satisfy: it edits requirements.txt and knows nothing about the version line.
+#
+# So the version bump that a person would make by hand is made here instead.
+# A dependency update is a patch by definition -- it changes what is
+# installed, never what this package promises -- so the patch digit is the
+# only one this touches. Anything larger is a decision, and a decision has an
+# author.
+#
+# Only Renovate. A workflow triggered by Dependabot runs with a read-only
+# token whatever the permissions block says, so it could not push this commit;
+# `dependabot.yml` is removed in the same change that adds this, and the
+# suite's updates come from Renovate (lnic-contracts, docs/dependencies.md).
+
+name: Bump the version for a bot
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    # Documentation ships nothing, so it needs no version -- the same
+    # exemption tag-a-release.yml makes.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+concurrency:
+  group: bump-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    if: github.actor == 'renovate[bot]'
+    name: Give the branch a version that can release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0      # tags, to know what is already released
+
+      - name: Find the next version nothing has claimed
+        id: next
+        run: |
+          # grep, not a TOML parser: this runs before any install, and the
+          # line has one shape. The same read tag-a-release.yml makes.
+          VERSION="$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)"
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version in pyproject.toml"
+            exit 1
+          fi
+          echo "pyproject says $VERSION"
+
+          # Walk the patch digit until the tag is free. A loop rather than
+          # "latest tag plus one": tags are not always the highest version
+          # in sort order, and the question here is only whether THIS one
+          # is taken.
+          NEXT="$VERSION"
+          while git rev-parse "v$NEXT" >/dev/null 2>&1; do
+            NEXT="$(echo "$NEXT" | awk -F. '{ printf "%s.%s.%d", $1, $2, $3 + 1 }')"
+          done
+
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+          if [ "$NEXT" = "$VERSION" ]; then
+            echo "v$VERSION is not tagged; nothing to do"
+          else
+            echo "v$VERSION is taken, moving to $NEXT"
+          fi
+
+      - name: Write it, if it changed
+        env:
+          VERSION: ${{ steps.next.outputs.next }}
+        run: |
+          CURRENT="$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)"
+          if [ "$CURRENT" = "$VERSION" ]; then
+            echo "already $VERSION"
+            exit 0
+          fi
+          # The first version line, which is this package's: an
+          # unanchored replace would rewrite a dependency's pin. GNU sed
+          # on the runner supports the 0,/re/ address, which stops at the
+          # first match.
+          sed -i "0,/^version = /s|^version = .*|version = \"$VERSION\"|" pyproject.toml
+          grep -m1 '^version = ' pyproject.toml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "Bump the version to $VERSION so this can release"
+          # The push re-runs this workflow on `synchronize`. The second run
+          # finds the version already free and exits above, so it settles
+          # rather than looping.
+          git push origin "HEAD:${{ github.head_ref }}"
