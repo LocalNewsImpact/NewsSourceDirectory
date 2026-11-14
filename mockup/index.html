@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>LNIC Source Directory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@500;600;700&display=swap">
+</head>
+<body>
+<style>
+/* Tokens taken from localnewsimpact.org (Divi). Deliberately light-only:
+   this is a fidelity mock of a light WordPress page. */
+:root{
+  --ground:#ffffff; --ground-note:#f4fafd; --ground-soft:#fafcfd;
+  --rule:#dddddd; --rule-soft:#ebeff1; --th-bg:#f2f2f2;
+  --ink:#333333; --ink-strong:#1c2a31; --ink-muted:#6a7a83;
+  --accent:#66cef6; --accent-wash:#e8f7fe; --accent-ink:#0b5f80;
+  --link:#0073aa; --link-hover:#005177;
+  --font-head:'Montserrat',Helvetica,Arial,sans-serif;
+  --font-body:'Lato',Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--font-body);
+     font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* mock chrome */
+.note{background:var(--ground-note);border-bottom:1px solid var(--rule-soft)}
+.note .wrap{display:flex;gap:14px;align-items:flex-start;padding-block:14px}
+.note p{margin:0;font-size:13.5px;color:var(--ink-muted);max-width:82ch}
+.note b{font-family:var(--font-head);font-weight:600;color:var(--ink-strong)}
+.tag{flex:none;font-family:var(--font-head);font-size:10.5px;font-weight:700;letter-spacing:.12em;
+     text-transform:uppercase;color:var(--accent-ink);background:var(--accent-wash);
+     border:1px solid var(--accent);border-radius:3px;padding:3px 8px;margin-top:2px}
+
+header.page{padding:40px 0 6px}
+header.page h1{font-family:var(--font-head);font-weight:600;font-size:38px;line-height:1.2;
+               margin:0;color:var(--ink-strong);text-wrap:balance}
+header.page p.sub{margin:10px 0 0;font-size:18px;color:var(--ink-muted);max-width:70ch}
+
+/* metric tiles */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}
+.metric{background:var(--ground-soft);border:1px solid var(--rule-soft);border-radius:4px;padding:12px 16px}
+.metric .lbl{font-family:var(--font-head);font-size:10.5px;font-weight:600;letter-spacing:.08em;
+             text-transform:uppercase;color:var(--ink-muted)}
+.metric .val{font-family:var(--font-head);font-size:26px;font-weight:700;color:var(--ink-strong);
+             font-variant-numeric:tabular-nums;line-height:1.25}
+.metric .val small{font-size:14px;font-weight:600;color:var(--ink-muted)}
+
+/* tabs */
+.tabs{display:flex;gap:2px;margin:26px 0 0;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.tabs button{font-family:var(--font-head);font-size:14px;font-weight:600;background:none;
+             border:1px solid transparent;border-bottom:0;border-radius:3px 3px 0 0;
+             padding:10px 16px;color:var(--ink-muted);cursor:pointer;margin-bottom:-1px}
+.tabs button:hover{color:var(--link)}
+.tabs button[aria-selected="true"]{color:var(--ink-strong);background:var(--ground);
+             border-color:var(--rule);border-bottom:1px solid var(--ground)}
+.panel[hidden]{display:none}
+.caption{margin:14px 0 0;font-size:14px;color:var(--ink-muted)}
+
+/* controls */
+.controls{display:grid;grid-template-columns:minmax(240px,1.4fr) repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field>label,.ms>summary .lbl{font-family:var(--font-head);font-size:10.5px;font-weight:600;
+     letter-spacing:.1em;text-transform:uppercase;color:var(--ink-muted)}
+.field input[type=search]{font-family:var(--font-body);font-size:15px;color:var(--ink);
+     background:var(--ground);border:1px solid var(--rule);border-radius:3px;padding:9px 10px;width:100%}
+.field input:focus{border-color:var(--accent);outline:2px solid var(--accent-wash);outline-offset:0}
+
+/* multi-select */
+.ms{position:relative;min-width:0}
+.ms>summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:5px}
+.ms>summary::-webkit-details-marker{display:none}
+.ms .box{border:1px solid var(--rule);border-radius:3px;padding:9px 28px 9px 10px;font-size:15px;
+     background:var(--ground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
+.ms .box::after{content:'';position:absolute;right:11px;top:calc(50% - 2px);
+     border:4px solid transparent;border-top-color:var(--ink-muted)}
+.ms[open] .box{border-color:var(--accent)}
+.ms .pop{position:absolute;z-index:20;top:100%;left:0;right:0;margin-top:4px;background:var(--ground);
+     border:1px solid var(--rule);border-radius:3px;box-shadow:0 6px 18px rgba(20,38,46,.12);
+     max-height:280px;overflow:auto;padding:6px}
+.ms .pop label{display:flex;gap:8px;align-items:flex-start;padding:5px 7px;border-radius:3px;
+     font-size:14.5px;cursor:pointer;line-height:1.35}
+.ms .pop label:hover{background:var(--accent-wash)}
+.ms .pop input{margin:3px 0 0;accent-color:var(--link);flex:none}
+.ms .pop .n{margin-left:auto;color:var(--ink-muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+
+/* meta bar */
+.meta{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:16px}
+.count{font-size:14px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+.count strong{color:var(--ink-strong);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12.5px;background:var(--accent-wash);color:var(--accent-ink);border:1px solid var(--accent);
+      border-radius:999px;padding:2px 9px;display:inline-flex;align-items:center;gap:6px}
+.chip button{background:none;border:0;color:inherit;font-size:14px;line-height:1;cursor:pointer;padding:0}
+.spacer{flex:1 1 auto}
+.btn{font-family:var(--font-head);font-size:13px;font-weight:600;border-radius:3px;padding:9px 15px;
+     cursor:pointer;border:1px solid transparent}
+.btn-primary{background:var(--link);color:#fff}
+.btn-primary:hover{background:var(--link-hover)}
+.btn-ghost{background:none;color:var(--link);border-color:var(--rule)}
+.btn-ghost:hover{border-color:var(--accent);background:var(--accent-wash)}
+.toggle{display:inline-flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.toggle button{font-family:var(--font-head);font-size:13px;font-weight:600;background:none;border:0;
+     padding:8px 14px;color:var(--link);cursor:pointer}
+.toggle button[aria-pressed="true"]{background:var(--link);color:#fff}
+
+/* tables */
+.tablewrap{overflow-x:auto;margin-top:14px}
+table{width:100%;border-collapse:collapse;margin:0}
+th,td{border:1px solid var(--rule);padding:12px 8px;text-align:left;vertical-align:top}
+th{background:var(--th-bg);color:var(--ink);font-family:var(--font-head);font-weight:600;
+   font-size:13px;white-space:nowrap}
+th button{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;
+   display:inline-flex;align-items:center;gap:6px}
+th .arrow{font-size:10px;opacity:0;color:var(--link)}
+th[aria-sort] .arrow{opacity:1}
+td{font-size:14.5px}
+td a{color:var(--link);font-weight:700;text-decoration:none}
+td a:hover{text-decoration:underline}
+td .domain{display:block;font-size:12.5px;color:var(--ink-muted);font-weight:400}
+tbody tr:nth-child(even){background:var(--ground-soft)}
+.dense td{font-size:13.5px;padding:8px;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.pill{font-size:11.5px;font-family:var(--font-head);font-weight:600;border-radius:999px;
+      padding:2px 8px;white-space:nowrap;background:var(--accent-wash);color:var(--accent-ink);
+      display:inline-block;margin:0 4px 4px 0}
+.unk{color:#9aa8ae;font-style:italic}
+.empty{padding:44px 8px;text-align:center;color:var(--ink-muted)}
+
+/* cards */
+.cards{display:grid;gap:12px;margin-top:14px}
+.card{border:1px solid var(--rule);border-radius:4px;padding:16px 18px;background:var(--ground)}
+.card h3{margin:0 0 4px;font-family:var(--font-head);font-size:18px;font-weight:600;color:var(--link)}
+.card .cmeta{color:var(--ink-muted);font-size:13.5px;margin-bottom:9px}
+.card dl{display:grid;grid-template-columns:104px 1fr;gap:3px 12px;margin:10px 0 0;font-size:14.5px}
+.card dt{font-family:var(--font-head);font-size:10.5px;font-weight:600;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--ink-muted);padding-top:5px}
+.card dd{margin:0}
+.card .site{display:inline-block;margin-top:11px;color:var(--link);font-weight:700;text-decoration:none}
+.card .site:hover{text-decoration:underline}
+
+/* pager */
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin:16px 0 48px;font-size:14px}
+.pager span{color:var(--ink-muted);font-variant-numeric:tabular-nums;margin-right:6px}
+.pager button{font-family:var(--font-body);font-size:14px;background:none;border:1px solid var(--rule);
+     border-radius:3px;padding:6px 12px;color:var(--link);cursor:pointer}
+.pager button:hover:not(:disabled){border-color:var(--accent);background:var(--accent-wash)}
+.pager button:disabled{color:#b7c2c8;cursor:default}
+
+/* export dialog */
+dialog{border:1px solid var(--rule);border-radius:4px;padding:0;max-width:800px;width:calc(100% - 48px)}
+dialog::backdrop{background:rgba(20,38,46,.45)}
+.dlg-head{padding:18px 20px 12px;border-bottom:1px solid var(--rule-soft)}
+.dlg-head h2{margin:0;font-family:var(--font-head);font-weight:600;font-size:19px;color:var(--ink-strong)}
+.dlg-head p{margin:6px 0 0;font-size:13.5px;color:var(--ink-muted)}
+.dlg-body{padding:14px 20px}
+textarea{width:100%;height:220px;font-family:'Courier New',monospace;font-size:12.5px;color:var(--ink);
+     border:1px solid var(--rule);border-radius:3px;padding:10px;resize:vertical;white-space:pre;
+     background:var(--ground-soft)}
+.dlg-foot{display:flex;gap:10px;justify-content:flex-end;padding:0 20px 18px}
+
+@media (max-width:900px){
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  .controls{grid-template-columns:1fr 1fr}
+  .controls .field:first-child{grid-column:1/-1}
+}
+@media (max-width:700px){
+  header.page h1{font-size:29px}
+  .card dl{grid-template-columns:1fr;gap:0}
+  .card dt{padding-top:9px}
+  .tablewrap{overflow-x:auto}
+  .browse-table table,.browse-table tbody,.browse-table tr,.browse-table td{display:block;width:100%}
+  .browse-table thead{display:none}
+  .browse-table tbody tr{border:1px solid var(--rule);border-radius:3px;margin-bottom:10px;
+     padding:4px 0;background:var(--ground)!important}
+  .browse-table td{border:0;padding:6px 14px;display:grid;grid-template-columns:78px 1fr;gap:12px;align-items:baseline}
+  .browse-table td::before{content:attr(data-label);font-family:var(--font-head);font-size:10.5px;
+     font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="note"><div class="wrap">
+  <span class="tag">QA</span>
+  <p><b>Reading the live registry.</b> This page fetches the feed published from the
+  admin, so it shows what is in the database now rather than a snapshot. Each publish
+  is a commit, so what you see here is reviewable and revertable. Search, facets, sort,
+  paging and export all run client-side against the loaded feed, exactly as the
+  production widget will. <b>Export</b> opens a preview panel here because the viewer
+  blocks downloads; embedded in WordPress it saves a <code>.csv</code>.</p>
+</div></div>
+
+<div class="wrap">
+  <header class="page">
+    <h1>Local News Outlet Directory</h1>
+    <p class="sub">Outlet profiles merged from state and site-area studies, with the underlying source records preserved for review.</p>
+  </header>
+
+  <div class="metrics">
+    <div class="metric"><div class="lbl">Unique outlets</div><div class="val" id="m-outlets"></div></div>
+    <div class="metric"><div class="lbl">Coverage records</div><div class="val" id="m-coverage"></div></div>
+    <div class="metric"><div class="lbl">States covered</div><div class="val" id="m-states"></div></div>
+    <div class="metric"><div class="lbl">Source files</div><div class="val" id="m-sources"></div></div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-explorer" aria-selected="true" aria-controls="panel-explorer">Data explorer</button>
+    <button role="tab" id="tab-browse" aria-selected="false" aria-controls="panel-browse">Browse outlets</button>
+    <button role="tab" id="tab-coverage" aria-selected="false" aria-controls="panel-coverage">Coverage records</button>
+  </div>
+
+  <div class="controls">
+    <div class="field">
+      <label for="q">Keyword search</label>
+      <input id="q" type="search" placeholder="Try: Montana, radio, Atlanta, Tribune&hellip;" autocomplete="off">
+    </div>
+    <details class="ms field" id="ms-state"><summary><span class="lbl">State</span><span class="box">All states</span></summary><div class="pop"></div></details>
+    <details class="ms field" id="ms-medium"><summary><span class="lbl">Primary medium</span><span class="box">All media</span></summary><div class="pop"></div></details>
+    <details class="ms field" id="ms-source"><summary><span class="lbl">Source file</span><span class="box">All source files</span></summary><div class="pop"></div></details>
+  </div>
+
+  <div class="meta">
+    <p class="count" id="count" aria-live="polite"></p>
+    <div class="chips" id="chips"></div>
+    <span class="spacer"></span>
+    <div class="toggle" id="view" hidden>
+      <button type="button" data-view="cards" aria-pressed="true">Cards</button>
+      <button type="button" data-view="table" aria-pressed="false">Table</button>
+    </div>
+    <button class="btn btn-ghost" id="reset" type="button">Reset</button>
+    <button class="btn btn-primary" id="export" type="button">Export CSV</button>
+  </div>
+
+  <section class="panel" id="panel-explorer" role="tabpanel" aria-labelledby="tab-explorer">
+    <p class="caption">Every column of both tables, with the search and filters above applied &mdash; for QA and drill-down.</p>
+    <div class="meta"><p class="count" id="exp-count"></p><span class="spacer"></span>
+      <div class="toggle" id="exp-toggle">
+        <button type="button" data-exp="outlets" aria-pressed="true">Outlets table</button>
+        <button type="button" data-exp="coverage" aria-pressed="false">Coverage table</button>
+      </div></div>
+    <div class="tablewrap"><table class="dense"><thead><tr id="exp-head"></tr></thead><tbody id="exp-body"></tbody></table></div>
+  </section>
+
+  <section class="panel" id="panel-browse" role="tabpanel" aria-labelledby="tab-browse" hidden>
+    <p class="caption">Each card represents one merged outlet profile.</p>
+    <div id="browse-out"></div>
+  </section>
+
+  <section class="panel" id="panel-coverage" role="tabpanel" aria-labelledby="tab-coverage" hidden>
+    <p class="caption">Underlying source rows preserved for QA and geography lookup.</p>
+    <div class="tablewrap"><table class="dense"><thead><tr id="cov-head"></tr></thead><tbody id="cov-body"></tbody></table></div>
+  </section>
+
+  <div class="pager">
+    <span id="range"></span>
+    <button id="prev" type="button">&larr; Previous</button>
+    <button id="next" type="button">Next &rarr;</button>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <div class="dlg-head">
+    <h2>Export &mdash; <span id="dlg-n"></span></h2>
+    <p>In the WordPress embed this downloads as a <code>.csv</code>. The viewer here blocks downloads, so the file is shown for copying.</p>
+  </div>
+  <div class="dlg-body"><textarea id="csv" readonly spellcheck="false"></textarea></div>
+  <div class="dlg-foot">
+    <button class="btn btn-ghost" id="dlg-close" type="button">Close</button>
+    <button class="btn btn-primary" id="dlg-copy" type="button">Copy to clipboard</button>
+  </div>
+</dialog>
+
+<!-- Data is fetched from the published feed, not baked in. -->
+
+<script>
+/* ---------------------------------------------------------------
+   Feature parity with the Streamlit prototype (app.py):
+   metric tiles, keyword search, three multi-select filters,
+   outlet cards, coverage table, data explorer, CSV download of
+   every filtered set. Plus sorting, paging and filter chips.
+   --------------------------------------------------------------- */
+/* ---------------------------------------------------------------
+   The feed is fetched, not baked in. manifest.json is small and
+   always revalidated; the files it names are content-hashed and
+   cached forever, so a publish that changes nothing costs nothing.
+   Coverage is marked lazy in the manifest and is only fetched if
+   someone opens a view that needs it.
+   --------------------------------------------------------------- */
+const FEED = '../data/';
+let MANIFEST = null;
+let OUTLETS = [];
+let COVERAGE = [];
+let coverageLoaded = false;
+
+const columnsOf = rows => (rows.length ? Object.keys(rows[0]) : []);
+
+const SPLIT = ' | ';
+const multi = v => (v || '').split(SPLIT).map(s => s.trim()).filter(Boolean);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = n => n.toLocaleString('en-US');
+
+/* outlet -> the states/sources reachable through its coverage rows */
+const covByOutlet = new Map();
+
+/* Built in buildFromData(), once OUTLETS holds the feed. Building it here, at
+   parse time, indexes an empty array: every lookup then returns undefined and
+   the first keystroke in the search box throws. */
+let SEARCH = new Map();
+
+const PER = {browse: 24, coverage: 50, explorer: 50};
+const state = {
+  tab: 'explorer', view: 'cards', exp: 'outlets',
+  q: '', f: {state: new Set(), medium: new Set(), source: new Set()},
+  sort: 'outlet_name', dir: 1, page: 1
+};
+
+/* ---- loading ---- */
+
+async function loadJSON(path) {
+  const response = await fetch(FEED + path, { cache: path === 'manifest.json' ? 'no-cache' : 'default' });
+  if (!response.ok) throw new Error(`${path}: ${response.status} ${response.statusText}`);
+  return response.json();
+}
+
+async function loadCoverage() {
+  // Only fetched when something actually needs it. Most visitors never open a
+  // view that does, and it is roughly twice the size of the outlet feed.
+  if (coverageLoaded) return;
+  const meta = MANIFEST.files.coverage;
+  if (!meta) { coverageLoaded = true; return; }
+  COVERAGE = await loadJSON(meta.path);
+  covByOutlet.clear();
+  for (const r of COVERAGE) {
+    if (!covByOutlet.has(r.outlet_id)) covByOutlet.set(r.outlet_id, []);
+    covByOutlet.get(r.outlet_id).push(r);
+  }
+  coverageLoaded = true;
+}
+
+function showProblem(message, detail) {
+  document.querySelector('.wrap').innerHTML =
+    '<div style="padding:48px 0"><h1 style="font-family:var(--font-head);font-size:24px;' +
+    'color:var(--ink-strong);margin:0 0 10px">' + esc(message) + '</h1>' +
+    '<p style="color:var(--ink-muted);max-width:60ch">' + esc(detail) + '</p></div>';
+}
+
+/* ---- built once the feed has loaded ---- */
+/* ---- facets: declared here because render() and the chip handler need them,
+   built below once the feed has arrived ---- */
+const FACETS = [
+  // All three read the outlet feed, so the directory is usable before the
+  // larger coverage file is fetched — or without fetching it at all.
+  {id: 'ms-state',  key: 'state',  all: 'All states',
+   values: () => tally(OUTLETS.flatMap(o => multi(o.states)))},
+  {id: 'ms-medium', key: 'medium', all: 'All media',
+   values: () => tally(OUTLETS.map(o => o.primary_medium))},
+  {id: 'ms-source', key: 'source', all: 'All source files',
+   values: () => tally(OUTLETS.flatMap(o => multi(o.source_files)))},
+];
+function tally(vals) {
+  const m = new Map();
+  for (const v of vals) if (v) m.set(v, (m.get(v) || 0) + 1);
+  return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+function buildFromData() {
+SEARCH = new Map(OUTLETS.map(o => [o.outlet_id, [
+  o.outlet_name, o.domain, o.canonical_url, o.primary_medium, o.mediums,
+  o.states, o.cities, o.counties, o.source_files
+].join(' ').toLowerCase()]));
+
+/* ---- metric tiles ---- */
+// Counts come from the manifest where possible, so a number is never wrong
+// merely because a lazily-loaded file has not arrived.
+document.getElementById('m-outlets').textContent  = num(MANIFEST.counts.outlets);
+document.getElementById('m-coverage').textContent = num(MANIFEST.counts.coverage_records);
+document.getElementById('m-states').textContent   =
+  num(new Set(OUTLETS.flatMap(o => multi(o.states))).size);
+document.getElementById('m-sources').textContent  =
+  num(new Set(OUTLETS.flatMap(o => multi(o.source_files))).size);
+
+/* ---- multi-select filters, options counted from the data ---- */
+for (const f of FACETS) {
+  const el = document.getElementById(f.id);
+  el.querySelector('.pop').innerHTML = f.values().map(([v, n]) =>
+    '<label><input type="checkbox" value="' + esc(v) + '"><span>' + esc(v) +
+    '</span><span class="n">' + num(n) + '</span></label>').join('');
+  el.addEventListener('change', e => {
+    const set = state.f[f.key];
+    e.target.checked ? set.add(e.target.value) : set.delete(e.target.value);
+    state.page = 1; render();
+  });
+}
+document.addEventListener('click', e => {
+  document.querySelectorAll('details.ms[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; });
+});
+
+}
+
+/* ---- tabs ---- */
+document.querySelectorAll('[role=tab]').forEach(t => t.addEventListener('click', async () => {
+  state.tab = t.id.replace('tab-', ''); state.page = 1;
+  if (state.tab === 'coverage') {
+    // Coverage arrives on demand; the first click on these tabs pays for it.
+    t.textContent = t.textContent.replace(/ …$/, '') + ' …';
+    try { await loadCoverage(); } finally { t.textContent = t.textContent.replace(/ …$/, ''); }
+  }
+  document.querySelectorAll('[role=tab]').forEach(x => x.setAttribute('aria-selected', String(x === t)));
+  ['browse','coverage','explorer'].forEach(p =>
+    document.getElementById('panel-' + p).hidden = (p !== state.tab));
+  render();
+}));
+document.getElementById('view').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.view = b.dataset.view; state.page = 1; render();
+});
+document.getElementById('exp-toggle').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.exp === 'coverage' && !coverageLoaded) {
+    const label = b.textContent;
+    b.textContent = label + ' …';
+    try { await loadCoverage(); } finally { b.textContent = label; }
+  }
+  state.exp = b.dataset.exp; state.page = 1; render();
+});
+
+document.getElementById('q').addEventListener('input', e => {
+  state.q = e.target.value.trim().toLowerCase(); state.page = 1; render();
+});
+document.getElementById('reset').addEventListener('click', () => {
+  state.q = ''; document.getElementById('q').value = '';
+  Object.values(state.f).forEach(s => s.clear());
+  document.querySelectorAll('.ms input[type=checkbox]').forEach(c => c.checked = false);
+  state.page = 1; render();
+});
+document.getElementById('prev').addEventListener('click', () => { state.page--; render(); jump(); });
+document.getElementById('next').addEventListener('click', () => { state.page++; render(); jump(); });
+function jump(){ document.querySelector('.tabs').scrollIntoView({block:'start', behavior:'smooth'}); }
+
+/* ---- filtering ---- */
+function outletMatchesFacets(o) {
+  const {state: st, medium: md, source: sf} = state.f;
+  if (md.size && !md.has(o.primary_medium)) return false;
+  // Read off the outlet rather than its coverage, so filtering works whether or
+  // not the coverage file has been fetched.
+  if (st.size && !multi(o.states).some(v => st.has(v))) return false;
+  if (sf.size && !multi(o.source_files).some(v => sf.has(v))) return false;
+  return true;
+}
+function filteredOutlets() {
+  let out = OUTLETS.filter(outletMatchesFacets);
+  if (state.q) out = out.filter(o => SEARCH.get(o.outlet_id).includes(state.q));
+  const k = state.sort;
+  return out.slice().sort((a, b) => {
+    const av = a[k] ?? '', bv = b[k] ?? '';
+    const n = Number(av), m = Number(bv);
+    const c = (av !== '' && bv !== '' && !isNaN(n) && !isNaN(m))
+      ? n - m : String(av).localeCompare(String(bv), undefined, {numeric: true});
+    return c * state.dir;
+  });
+}
+function filteredCoverage() {
+  const {state: st, source: sf, medium: md} = state.f;
+  let rows = COVERAGE;
+  if (st.size) rows = rows.filter(r => st.has(r.state));
+  if (sf.size) rows = rows.filter(r => sf.has(r.source_file));
+  if (md.size) {
+    // A coverage row carries no medium that matches the facet, so the medium
+    // filter reaches it through the outlet the row belongs to.
+    const ids = new Set(OUTLETS.filter(o => md.has(o.primary_medium)).map(o => o.outlet_id));
+    rows = rows.filter(r => ids.has(r.outlet_id));
+  }
+  if (state.q) {
+    const q = state.q;
+    rows = rows.filter(r => [r.outlet_name_raw, r.city, r.county, r.state, r.notes]
+      .some(v => (v || '').toLowerCase().includes(q)));
+  }
+  return rows;
+}
+
+/* ---- renderers ---- */
+const BROWSE_COLS = [
+  {key: 'outlet_name', label: 'Outlet'}, {key: 'primary_medium', label: 'Medium'},
+  {key: 'states', label: 'States'}, {key: 'cities', label: 'Cities'},
+  {key: 'counties', label: 'Counties'}, {key: 'record_count', label: 'Records'},
+  {key: 'source_count', label: 'Sources'},
+];
+
+function cardHTML(o) {
+  const title = o.outlet_name || o.domain || 'Unnamed outlet';
+  const tags = (o.primary_medium ? '<span class="pill">' + esc(o.primary_medium) + '</span>' : '') +
+    multi(o.states).slice(0, 8).map(s => '<span class="pill">' + esc(s) + '</span>').join('');
+  const row = (t, v) => '<dt>' + t + '</dt><dd>' + (v ? esc(v) : '<span class="unk">&mdash;</span>') + '</dd>';
+  return '<article class="card">' +
+    '<h3>' + esc(title) + '</h3>' +
+    '<div class="cmeta">' + esc(o.domain || 'No domain') + ' &bull; ' +
+      num(+o.record_count || 0) + ' merged records &bull; ' +
+      num(+o.source_count || 0) + ' source slices</div>' +
+    '<div>' + tags + '</div>' +
+    '<dl>' + row('Cities', o.cities) + row('Counties', o.counties) + row('Source files', o.source_files) + '</dl>' +
+    (o.canonical_url ? '<a class="site" href="' + esc(o.canonical_url) +
+      '" target="_blank" rel="noopener">Open website</a>' : '') +
+    '</article>';
+}
+
+function renderBrowse(rows, start) {
+  const page = rows.slice(start, start + PER.browse);
+  const out = document.getElementById('browse-out');
+  document.getElementById('view').hidden = false;
+  if (!page.length) {
+    out.className = ''; out.innerHTML =
+      '<p class="empty">No outlets matched your filters. <a href="#" id="clear">Clear them</a> and start again.</p>';
+    return;
+  }
+  if (state.view === 'cards') {
+    out.className = 'cards';
+    out.innerHTML = page.map(cardHTML).join('');
+  } else {
+    out.className = 'tablewrap browse-table';
+    out.innerHTML = '<table><thead><tr>' + BROWSE_COLS.map(c =>
+        '<th scope="col" data-key="' + c.key + '"' +
+        (state.sort === c.key ? ' aria-sort="' + (state.dir === 1 ? 'ascending' : 'descending') + '"' : '') +
+        '><button type="button">' + c.label + '<span class="arrow">' +
+        (state.dir === 1 ? '&#9650;' : '&#9660;') + '</span></button></th>').join('') +
+      '</tr></thead><tbody>' + page.map(o =>
+        '<tr>' +
+        '<td data-label="Outlet">' + (o.canonical_url
+            ? '<a href="' + esc(o.canonical_url) + '" target="_blank" rel="noopener">' + esc(o.outlet_name) + '</a>'
+            : esc(o.outlet_name)) +
+          '<span class="domain">' + esc(o.domain || 'No domain') + '</span></td>' +
+        '<td data-label="Medium">' + (o.primary_medium ? '<span class="pill">' + esc(o.primary_medium) + '</span>' : '&mdash;') + '</td>' +
+        '<td data-label="States">'   + (o.states   ? esc(o.states)   : '&mdash;') + '</td>' +
+        '<td data-label="Cities">'   + (o.cities   ? esc(o.cities)   : '&mdash;') + '</td>' +
+        '<td data-label="Counties">' + (o.counties ? esc(o.counties) : '&mdash;') + '</td>' +
+        '<td data-label="Records">'  + esc(o.record_count) + '</td>' +
+        '<td data-label="Sources">'  + esc(o.source_count) + '</td>' +
+        '</tr>').join('') + '</tbody></table>';
+    out.querySelector('thead').addEventListener('click', e => {
+      const th = e.target.closest('th'); if (!th) return;
+      state.dir = state.sort === th.dataset.key ? -state.dir : 1;
+      state.sort = th.dataset.key; state.page = 1; render();
+    });
+  }
+}
+
+function renderGrid(headEl, bodyEl, cols, rows, start, per) {
+  headEl.innerHTML = cols.map(c => '<th scope="col">' + esc(c) + '</th>').join('');
+  bodyEl.innerHTML = rows.slice(start, start + per).map(r =>
+    '<tr>' + cols.map(c => '<td title="' + esc(r[c]) + '">' +
+      (r[c] ? esc(r[c]) : '<span class="unk">&mdash;</span>') + '</td>').join('') + '</tr>').join('')
+    || '<tr><td class="empty" colspan="' + cols.length + '">Nothing matched those filters.</td></tr>';
+}
+
+function render() {
+  const isBrowse = state.tab === 'browse';
+  document.getElementById('view').hidden = !isBrowse;
+  const per = PER[state.tab];
+  let rows, label;
+
+  // The explorer differs from the other tabs in the columns it shows, not in
+  // the rows: search and the facets apply there too.
+  if (isBrowse)                     { rows = filteredOutlets();  label = 'outlets'; }
+  else if (state.tab === 'coverage'){ rows = filteredCoverage(); label = 'coverage records'; }
+  else if (state.exp === 'outlets') { rows = filteredOutlets();  label = 'outlets'; }
+  else                              { rows = filteredCoverage(); label = 'coverage records'; }
+
+  const pages = Math.max(1, Math.ceil(rows.length / per));
+  state.page = Math.min(state.page, pages);
+  const start = (state.page - 1) * per;
+
+  const total = (isBrowse || (state.tab === 'explorer' && state.exp === 'outlets'))
+    ? OUTLETS.length : COVERAGE.length;
+  document.getElementById('count').innerHTML = rows.length === total
+    ? '<strong>' + num(total) + '</strong> ' + label
+    : 'Showing <strong>' + num(rows.length) + '</strong> of ' + num(total) + ' ' + label;
+
+  document.getElementById('chips').innerHTML = FACETS.flatMap(f =>
+    [...state.f[f.key]].map(v => '<span class="chip">' + esc(v) +
+      '<button type="button" data-key="' + f.key + '" data-val="' + esc(v) +
+      '" aria-label="Remove filter">&times;</button></span>')).join('');
+
+  if (isBrowse) renderBrowse(rows, start);
+  else if (state.tab === 'coverage')
+    renderGrid(document.getElementById('cov-head'), document.getElementById('cov-body'),
+               columnsOf(COVERAGE), rows, start, per);
+  else {
+    document.getElementById('exp-count').innerHTML = (rows.length === total
+      ? '<strong>' + num(total) + '</strong> rows'
+      : 'Showing <strong>' + num(rows.length) + '</strong> of ' + num(total) + ' rows') +
+      ' in the ' + state.exp + ' table';
+    document.querySelectorAll('#exp-toggle button').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.exp === state.exp)));
+    renderGrid(document.getElementById('exp-head'), document.getElementById('exp-body'),
+               state.exp === 'outlets' ? columnsOf(OUTLETS) : columnsOf(COVERAGE), rows, start, per);
+  }
+
+  document.querySelectorAll('#view button').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.view === state.view)));
+  document.getElementById('range').textContent = rows.length
+    ? num(start + 1) + '\u2013' + num(Math.min(start + per, rows.length)) + ' of ' + num(rows.length) : '';
+  document.getElementById('prev').disabled = state.page <= 1;
+  document.getElementById('next').disabled = state.page >= pages;
+}
+
+document.getElementById('chips').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.f[b.dataset.key].delete(b.dataset.val);
+  document.querySelectorAll('.ms input[type=checkbox]').forEach(c => {
+    if (c.value === b.dataset.val) c.checked = false;
+  });
+  state.page = 1; render();
+});
+document.addEventListener('click', e => {
+  if (e.target.id === 'clear') { e.preventDefault(); document.getElementById('reset').click(); }
+});
+
+/* ---- CSV export of whatever the current tab is showing ---- */
+function toCSV(cols, rows) {
+  const cell = v => /[",\n]/.test(v ?? '') ? '"' + String(v).replace(/"/g, '""') + '"' : (v ?? '');
+  return [cols.join(',')].concat(rows.map(r => cols.map(c => cell(r[c])).join(','))).join('\n');
+}
+const dlg = document.getElementById('dlg');
+document.getElementById('export').addEventListener('click', () => {
+  let cols, rows, what;
+  if (state.tab === 'browse')        { cols = columnsOf(OUTLETS); rows = filteredOutlets();  what = 'outlets'; }
+  else if (state.tab === 'coverage') { cols = columnsOf(COVERAGE); rows = filteredCoverage(); what = 'coverage records'; }
+  else if (state.exp === 'outlets')  { cols = columnsOf(OUTLETS); rows = filteredOutlets();  what = 'outlets'; }
+  else                               { cols = columnsOf(COVERAGE); rows = filteredCoverage(); what = 'coverage records'; }
+  document.getElementById('dlg-n').textContent = num(rows.length) + ' ' + what;
+  document.getElementById('csv').value = toCSV(cols, rows);
+  dlg.showModal();
+});
+document.getElementById('dlg-close').addEventListener('click', () => dlg.close());
+document.getElementById('dlg-copy').addEventListener('click', async () => {
+  const ta = document.getElementById('csv'), btn = document.getElementById('dlg-copy');
+  try { await navigator.clipboard.writeText(ta.value); }
+  catch { ta.select(); document.execCommand('copy'); }
+  btn.textContent = 'Copied';
+  setTimeout(() => { btn.textContent = 'Copy to clipboard'; }, 1600);
+});
+
+/* ---- start ---- */
+
+(async function start() {
+  try {
+    MANIFEST = await loadJSON('manifest.json');
+  } catch (err) {
+    showProblem(
+      'No feed published yet',
+      'This page reads the feed committed by the publish workflow. Run it from the ' +
+      'Actions tab, or wait for the daily run. (' + err.message + ')'
+    );
+    return;
+  }
+
+  try {
+    OUTLETS = await loadJSON(MANIFEST.files.sites.path);
+  } catch (err) {
+    showProblem('The feed could not be loaded', err.message);
+    return;
+  }
+
+  buildFromData();
+  render();
+
+  const when = MANIFEST.generated_at;
+  if (when) {
+    const note = document.querySelector('.note p');
+    if (note) note.insertAdjacentHTML('beforeend',
+      ' <b>Published ' + esc(when.replace('T', ' ').replace('Z', ' UTC')) + '.</b>');
+  }
+})();
+</script>
+
+</body>
+</html>
